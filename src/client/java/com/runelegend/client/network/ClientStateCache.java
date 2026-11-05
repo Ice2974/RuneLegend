@@ -1,7 +1,9 @@
 package com.runelegend.client.network;
 
 import com.runelegend.api.RuleSnapshot;
+import com.runelegend.client.hud.TokenHudAnimation;
 import com.runelegend.network.RuneLegendPayloads;
+import net.minecraft.util.Util;
 import static com.runelegend.network.RuneLegendPayloads.*;
 
 public final class ClientStateCache {
@@ -13,6 +15,7 @@ public final class ClientStateCache {
     private long localSampleTick;
     private long tick;
     private boolean desynced;
+    private final TokenHudAnimation tokenAnimation = new TokenHudAnimation();
 
     private ClientStateCache() {}
 
@@ -21,11 +24,15 @@ public final class ClientStateCache {
     public long tick() { return tick; }
     public long serverTick() { return serverTick + Math.max(0, tick - localSampleTick); }
     public boolean desynced() { return desynced; }
+    public TokenHudAnimation tokenAnimation() { return tokenAnimation; }
 
     public void advanceTick() { tick++; }
 
     public void apply(Rules packet) {
-        if (rules == null || packet.rules().revision() >= rules.revision()) rules = packet.rules();
+        if (rules != null && packet.rules().revision() < rules.revision()) return;
+        var next = packet.rules();
+        if (!next.running() || rules == null || rules.round() != next.round()) tokenAnimation.clear();
+        rules = next;
     }
 
     public void apply(PlayerSnapshot packet) {
@@ -33,6 +40,7 @@ public final class ClientStateCache {
         view = packet.state();
         desynced = false;
         updateClock(packet.revision(), packet.tick());
+        updateTokenAnimation();
     }
 
     public void apply(PlayerDelta packet) {
@@ -43,6 +51,11 @@ public final class ClientStateCache {
         }
         view = RuneLegendPayloads.merge(view, packet.state(), packet.mask());
         updateClock(packet.revision(), packet.tick());
+        if ((packet.mask() & TOKENS) != 0 && !desynced) updateTokenAnimation();
+    }
+
+    private void updateTokenAnimation() {
+        if (rules != null && rules.running()) tokenAnimation.update(view.tokens(), Util.getMillis());
     }
 
     private void updateClock(long newRevision, long sample) {
@@ -52,6 +65,7 @@ public final class ClientStateCache {
     }
 
     public void clear() {
+        tokenAnimation.clear();
         rules = null;
         view = null;
         revision = -1;

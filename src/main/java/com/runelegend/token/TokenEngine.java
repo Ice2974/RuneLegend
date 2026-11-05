@@ -19,7 +19,7 @@ import java.util.function.ToDoubleFunction;
 
 public final class TokenEngine {
     public static final ResourceKey<DamageType> TOKEN_DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE, RuneLegendMod.id("token_damage"));
-    public static final int READY = 1, TRIGGERED = 2, ACTIVE = 4, COOLDOWN = 8, UNKNOWN = 16;
+    public static final int READY = 1, TRIGGERED = 2, ACTIVE = 4, COOLDOWN = 8, UNKNOWN = 16, PREPARING = 32;
     public record View(Identifier id, int flags, long triggeredUntil, long activeUntil, long cooldownUntil) {}
     public record Boost(float damage, List<Identifier> applied) {}
 
@@ -87,7 +87,8 @@ public final class TokenEngine {
             int flags = (definition.effect().ready(player, state, tick) ? READY : 0)
                     | (tick < state.triggeredUntil ? TRIGGERED : 0)
                     | (tick < state.activeUntil ? ACTIVE : 0)
-                    | (tick < state.cooldownUntil && tick >= state.activeUntil ? COOLDOWN : 0);
+                    | (tick < state.cooldownUntil && tick >= state.activeUntil ? COOLDOWN : 0)
+                    | (definition.effect().preparing(player, state, tick) ? PREPARING : 0);
             return new View(id, flags,
                     (flags & TRIGGERED) != 0 ? state.triggeredUntil : 0,
                     (flags & ACTIVE) != 0 ? state.activeUntil : 0,

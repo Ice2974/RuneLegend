@@ -2,6 +2,8 @@ package com.runelegend.token;
 
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.game.GameController;
+import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -10,9 +12,49 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityTypes;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class TokenEffectsGameTests {
+    @GameTest
+    public void onlyAnOptedInTokenPublishesPreparation(GameTestHelper test) {
+        var minecraft = test.getLevel().getServer();
+        var server = RuneLegendServer.find(minecraft);
+        var player = GuardGameTests.fixture(test);
+        var id = RuneLegendMod.id("preparation_fixture");
+        var registry = new TokenRegistry.Builder().register(new TokenDefinition(id, Set.of(TokenEvent.Kind.KILL),
+                new TokenEffectHandler() {
+                    @Override public boolean preparing(net.minecraft.server.level.ServerPlayer player,
+                                                       TokenRuntimeState state, long tick) { return state.charge == 1; }
+                    @Override public void onEvent(TokenEngine.Context context, TokenRuntimeState state, TokenEvent event) {
+                        state.charge++;
+                    }
+                })).build();
+        var game = new GameController(() -> {}, (previous, current) -> {});
+        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        var tokens = new TokenEngine(game, players, registry, () -> 100);
+        try {
+            test.assertValueEqual(players.equip(player.getUUID(), id), PlayerTokenService.Result.CHANGED, "Equip fixture");
+            game.startGame();
+            var kill = new TokenEvent(TokenEvent.Kind.KILL, player, player, test.getLevel(), null, 0, 0, 0);
+            test.assertValueEqual(tokens.views(player).getFirst().flags(), TokenEngine.READY, "Readiness is not preparation");
+            tokens.dispatch(kill);
+            test.assertValueEqual(tokens.views(player).getFirst().flags(), TokenEngine.READY | TokenEngine.PREPARING,
+                    "The fixture enters preparation after its first kill");
+            tokens.dispatch(kill);
+            test.assertValueEqual(tokens.views(player).getFirst().flags(), TokenEngine.READY, "Preparation ends independently");
+            for (var definition : server.registry().all()) {
+                test.assertTrue(!definition.effect().preparing(player, new TokenRuntimeState(), 100),
+                        definition.id() + " does not opt into preparation");
+            }
+            test.succeed();
+        } finally {
+            game.stopGame();
+            players.clear(player.getUUID());
+            server.leave(player);
+        }
+    }
+
     @GameTest
     public void lethalArrowKillStillReachesTokens(GameTestHelper test) {
         var level = test.getLevel();

@@ -12,12 +12,19 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Util;
 
+import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 public final class RuneLegendHud {
     private static final Set<String> ICONS = Set.of("sharpened_tip", "soul_siphon", "echo", "immediate_counter");
     private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);
+    private static final int GLOW_SIZE = 32;
+    private static final List<Identifier> GLOW = IntStream.range(0, TokenHudAnimation.FRAME_COUNT)
+            .mapToObj(frame -> RuneLegendMod.id("token/glow_0" + frame)).toList();
 
     private RuneLegendHud() {}
 
@@ -32,27 +39,41 @@ public final class RuneLegendHud {
         if (view == null || client.player == null || client.gui.hud.isHidden() || client.player.isSpectator()) return;
         boolean showStamina = view.stamina() < StaminaManager.MAX || GuardItems.using(client.player);
         var rules = cache.rules();
-        int slots = rules != null && rules.running() ? view.tokens().size() : 0;
+        int slots = rules != null && rules.running() && client.player.isAlive() ? view.tokens().size() : 0;
         if (slots == 0 && !showStamina) return;
         var layout = HudLayout.place(graphics.guiWidth(), graphics.guiHeight(), slots, VERTICAL_OFFSET);
+        long now = Util.getMillis();
+        int[] glowFrames = new int[slots];
         for (int i = 0; i < slots; i++) {
             var token = view.tokens().get(i);
+            var display = cache.tokenAnimation().display(token.id(), now);
+            glowFrames[i] = display.glowFrame();
             int x = layout.first() + i * layout.stride(), y = layout.top();
-            int border = (token.flags() & TokenEngine.TRIGGERED) != 0 ? 0xFFFFCC52
-                    : (token.flags() & TokenEngine.ACTIVE) != 0 ? 0xFF59DBCE
-                    : (token.flags() & TokenEngine.READY) != 0 ? 0xFF90BF9C : 0xFF5A5661;
+            int alpha = display.opacity() == 1F ? 0xFF000000 : 0x80000000;
+            int border = alpha | 0x5A5661;
             int size = HudLayout.SIZE;
-            graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, border);
-            graphics.fill(x, y, x + size, y + size, 0xFF231D2D);
+            graphics.fill(x - 1, y - 1, x + size + 1, y, border);
+            graphics.fill(x - 1, y + size, x + size + 1, y + size + 1, border);
+            graphics.fill(x - 1, y, x, y + size, border);
+            graphics.fill(x + size, y, x + size + 1, y + size, border);
+            graphics.fill(x, y, x + size, y + size, alpha | 0x231D2D);
             String path = token.id().getPath();
             String icon = token.id().getNamespace().equals(RuneLegendMod.MOD_ID) && ICONS.contains(path) ? path : "unknown";
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, RuneLegendMod.id("token/" + icon), x, y, size, size);
-            if ((token.flags() & TokenEngine.READY) == 0 && (token.flags() & TokenEngine.ACTIVE) == 0) {
-                graphics.fill(x, y, x + size, y + size, 0x65000000);
-            }
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, RuneLegendMod.id("token/" + icon), x, y, size, size, display.opacity());
+        }
+        int glowOffset = (GLOW_SIZE - HudLayout.SIZE) / 2;
+        for (int i = 0; i < slots; i++) {
+            if (glowFrames[i] < 0) continue;
+            int x = layout.first() + i * layout.stride();
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, GLOW.get(glowFrames[i]),
+                    x - glowOffset, layout.top() - glowOffset, GLOW_SIZE, GLOW_SIZE);
+        }
+        for (int i = 0; i < slots; i++) {
+            var token = view.tokens().get(i);
             if ((token.flags() & TokenEngine.COOLDOWN) != 0) {
                 long seconds = Math.max(0, (token.cooldownUntil() - cache.serverTick() + 19) / 20);
-                graphics.centeredText(client.font, Long.toString(seconds), x + size / 2, y + 4, 0xFFFFFFFF);
+                int x = layout.first() + i * layout.stride();
+                graphics.centeredText(client.font, Long.toString(seconds), x + HudLayout.SIZE / 2, layout.top() + 4, 0xFFFFFFFF);
             }
         }
         if (showStamina) {

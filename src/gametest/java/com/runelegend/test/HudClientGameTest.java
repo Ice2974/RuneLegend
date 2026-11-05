@@ -1,19 +1,28 @@
 package com.runelegend.test;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.runelegend.RuneLegendMod;
+import com.runelegend.client.hud.TokenHudAnimation;
 import com.runelegend.combat.StaminaManager;
 import com.runelegend.client.network.ClientStateCache;
+import com.runelegend.network.RuneLegendPayloads.PlayerSnapshot;
+import com.runelegend.network.RuneLegendPayloads.View;
+import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.util.Util;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Items;
 
+import java.util.List;
 import java.util.Properties;
 
 public final class HudClientGameTest implements FabricClientGameTest {
     @Override public void runTest(ClientGameTestContext context) {
+        checkAnimationTimeline();
         var props = new Properties();
         props.setProperty("online-mode", "false");
         props.setProperty("white-list", "false");
@@ -73,6 +82,84 @@ public final class HudClientGameTest implements FabricClientGameTest {
                 context.getInput().releaseKey(options -> options.keyUse);
             }
             context.waitFor(client -> !client.player.isUsingItem());
+            captureThreeGlows(context, cache);
+        }
+    }
+
+    private static void checkAnimationTimeline() {
+        var id = RuneLegendMod.id("preparation_fixture");
+        var animation = new TokenHudAnimation();
+        var preparing = new TokenEngine.View(id, TokenEngine.PREPARING, 0, 0, 0);
+        var triggered = new TokenEngine.View(id, TokenEngine.PREPARING | TokenEngine.TRIGGERED, 12, 0, 0);
+        animation.update(List.of(preparing), 0);
+        assertDisplay(animation, preparing, 999, 0.5F, -1);
+        assertDisplay(animation, preparing, 1_000, 1F, 0);
+        assertDisplay(animation, preparing, 1_350, 1F, 7);
+        assertDisplay(animation, preparing, 1_400, 1F, -1);
+        assertDisplay(animation, preparing, 2_000, 0.5F, -1);
+        animation.update(List.of(triggered), 3_200);
+        assertDisplay(animation, triggered, 3_200, 1F, 0);
+        animation.update(List.of(triggered), 3_300);
+        assertDisplay(animation, triggered, 3_300, 1F, 2);
+        animation.update(List.of(preparing), 3_800);
+        assertDisplay(animation, preparing, 4_199, 1F, -1);
+        assertDisplay(animation, preparing, 4_200, 0.5F, -1);
+        assertDisplay(animation, preparing, 5_200, 1F, 0);
+        var active = new TokenEngine.View(id, TokenEngine.PREPARING | TokenEngine.TRIGGERED | TokenEngine.ACTIVE, 45, 60, 0);
+        animation.update(List.of(active), 5_250);
+        assertDisplay(animation, active, 5_250, 1F, 0);
+        assertDisplay(animation, active, 6_900, 1F, -1);
+        animation.update(List.of(preparing), 7_000);
+        assertDisplay(animation, preparing, 7_999, 0.5F, -1);
+        assertDisplay(animation, preparing, 8_000, 1F, 0);
+        var idle = new TokenEngine.View(id, TokenEngine.READY | TokenEngine.COOLDOWN, 0, 0, 90);
+        animation.update(List.of(idle), 8_010);
+        assertDisplay(animation, idle, 8_010, 0.5F, -1);
+        animation.update(List.of(), 8_020);
+        assertDisplay(animation, idle, 8_020, 0.5F, -1);
+    }
+
+    private static void assertDisplay(TokenHudAnimation animation, TokenEngine.View token, long now, float alpha, int frame) {
+        var expected = new TokenHudAnimation.Display(alpha, frame);
+        var actual = animation.display(token.id(), now);
+        if (!expected.equals(actual)) throw new AssertionError("HUD at " + now + "ms: expected " + expected + ", got " + actual);
+    }
+
+    private static void captureThreeGlows(ClientGameTestContext context, ClientStateCache cache) {
+        var fixture = RuneLegendMod.id("hud_screenshot_fixture");
+        var ids = List.of(RuneLegendMod.id("sharpened_tip"), RuneLegendMod.id("echo"), RuneLegendMod.id("immediate_counter"));
+        long cooldownUntil = cache.serverTick() + 600;
+        var trigger = new java.util.concurrent.atomic.AtomicLong(1_000_000);
+        var frameAge = new java.util.concurrent.atomic.AtomicLong();
+        int originalScale = context.computeOnClient(client -> client.options.guiScale().get());
+        context.runOnClient(client -> {
+            cache.apply(new PlayerSnapshot(Long.MAX_VALUE, cache.serverTick(), new View(
+                    ids.stream().map(id -> new TokenEngine.View(id, TokenEngine.COOLDOWN, 0, 0, cooldownUntil)).toList(),
+                    StaminaManager.MAX)));
+            HudElementRegistry.attachElementBefore(RuneLegendMod.id("hud"), fixture, (graphics, delta) -> {
+                // Pin a visual frame with synthetic triggers so screenshot timing does not depend on FPS.
+                long stamp = trigger.incrementAndGet();
+                var views = ids.stream().map(id -> new TokenEngine.View(id, TokenEngine.TRIGGERED | TokenEngine.COOLDOWN,
+                        stamp, 0, cooldownUntil)).toList();
+                cache.tokenAnimation().update(views, Util.getMillis() - frameAge.get());
+            });
+        });
+        try {
+            for (int scale : new int[] {1, 2}) {
+                context.runOnClient(client -> client.options.guiScale().set(scale));
+                context.waitFor(client -> client.getWindow().getGuiScale() == scale);
+                frameAge.set(0);
+                context.takeScreenshot("token-glow-first-frame-scale-" + scale);
+                frameAge.set(300);
+                context.takeScreenshot("token-glow-expanded-scale-" + scale);
+                frameAge.set(350);
+                context.takeScreenshot("token-glow-transparent-last-frame-scale-" + scale);
+            }
+        } finally {
+            context.runOnClient(client -> {
+                HudElementRegistry.removeElement(fixture);
+                client.options.guiScale().set(originalScale);
+            });
         }
     }
 }
