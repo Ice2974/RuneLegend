@@ -50,12 +50,7 @@ public final class RuneLegendHud {
             glowFrames[i] = display.glowFrame();
             int x = layout.first() + i * layout.stride(), y = layout.top();
             int alpha = display.opacity() == 1F ? 0xFF000000 : 0x80000000;
-            int border = alpha | 0x5A5661;
             int size = HudLayout.SIZE;
-            graphics.fill(x - 1, y - 1, x + size + 1, y, border);
-            graphics.fill(x - 1, y + size, x + size + 1, y + size + 1, border);
-            graphics.fill(x - 1, y, x, y + size, border);
-            graphics.fill(x + size, y, x + size + 1, y + size, border);
             graphics.fill(x, y, x + size, y + size, alpha | 0x231D2D);
             String path = token.id().getPath();
             String icon = token.id().getNamespace().equals(RuneLegendMod.MOD_ID) && ICONS.contains(path) ? path : "unknown";
