@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "runelegend",
+  "version": "${version}",
+  "name": "RuneLegend",
+  "description": "Map-controlled rune tokens, directional sword guarding and stamina.",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.runelegend.RuneLegendMod"],
+    "client": ["com.runelegend.client.RuneLegendClient"]
+  },
+  "mixins": ["runelegend.mixins.json", {"config": "runelegend.client.mixins.json", "environment": "client"}],
+  "depends": {"fabricloader": ">=0.20.1", "minecraft": "26.3", "java": ">=25", "fabric-api": ">=0.165.2"}
+}

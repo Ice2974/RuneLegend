@@ -1,0 +1,49 @@
+﻿# Gradle
+.gradle/
+.gradle-*/
+gradle/wrapper/gradle-9.2.1-bin
+**/build/
+out/
+classes/
+publish/
+
+# Minecraft
+.minecraft/
+**/run/
+logs/
+crash-reports/
+hs_err_pid*
+replay_pid*
+
+# Java
+*.class
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+*.code-workspace
+bin/
+.claude/
+.codex/
+.zcode/
+.agents/
+.zcodeignore
+
+# Git
+.shelf/
+
+# Temporary files
+.tmp/
+*.tmp
+*.bak
+*.old
+*.orig
+
+# Local references
+references/

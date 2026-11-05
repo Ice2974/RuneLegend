@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "runelegend_test",
+  "version": "1.0.0",
+  "name": "RuneLegend test fixtures",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests"],
+    "fabric-client-gametest": ["com.runelegend.test.HudClientGameTest"]
+  },
+  "depends": {"runelegend": "*"}
+}

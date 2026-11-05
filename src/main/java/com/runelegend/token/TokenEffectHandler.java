@@ -1,0 +1,9 @@
+package com.runelegend.token;
+
+import net.minecraft.server.level.ServerPlayer;
+
+public interface TokenEffectHandler {
+    default float addMeleeDamage(TokenEngine.Context context, TokenRuntimeState state) { return 0; }
+    default void onEvent(TokenEngine.Context context, TokenRuntimeState state, TokenEvent event) {}
+    default boolean ready(ServerPlayer player, TokenRuntimeState state, long tick) { return true; }
+}

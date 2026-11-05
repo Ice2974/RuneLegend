@@ -1,0 +1,68 @@
+package com.runelegend.token;
+
+import com.runelegend.RuneLegendMod;
+import com.runelegend.RuneLegendServer;
+import com.runelegend.player.PlayerTokenService;
+import com.runelegend.test.GuardGameTests;
+import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.EntityTypes;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+public final class TokenEffectsGameTests {
+    @GameTest
+    public void effectsUseIndependentPlayersAndOwnedTasks(GameTestHelper test) {
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var first = GuardGameTests.fixture(test);
+        var second = GuardGameTests.fixture(test);
+        var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
+        var spider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 3);
+        var clock = new AtomicLong(100);
+        var tokens = new TokenEngine(server.game(), server.players(), server.registry(), clock::get, player -> 0.01);
+        float firstMax = first.getMaxHealth();
+        float firstHealth = first.getHealth();
+        float spiderHealth = spider.getHealth();
+        try {
+            server.game().stopGame();
+            for (var player : List.of(first, second)) {
+                for (String id : List.of("sharpened_tip", "soul_siphon", "echo")) {
+                    test.assertValueEqual(server.players().equip(player.getUUID(), RuneLegendMod.id(id)),
+                            PlayerTokenService.Result.CHANGED, "Each player can equip the same three tokens");
+                }
+            }
+            var kill = new TokenEvent(TokenEvent.Kind.KILL, first, corpse, level, first.damageSources().playerAttack(first), 25, 25, 0);
+            tokens.dispatch(kill);
+            test.assertValueEqual(first.getMaxHealth(), firstMax, "WAITING disables token effects");
+            server.game().startGame();
+            var boost = tokens.melee(first, 6);
+            test.assertValueEqual(boost.damage(), 8F, "Sharpened Tip adds damage to the original hit");
+            tokens.confirmBoost(first, boost.applied());
+            tokens.dispatch(kill);
+            tokens.dispatch(kill);
+            test.assertValueEqual(first.getMaxHealth(), firstMax + 2, "Soul Siphon refreshes without stacking");
+            test.assertValueEqual(first.getHealth(), firstHealth, "Soul Siphon does not heal");
+            test.assertValueEqual(second.getMaxHealth(), firstMax, "An identical token does not buff the other player");
+            test.assertTrue(tokens.views(second).stream().noneMatch(view -> (view.flags() & (TokenEngine.ACTIVE | TokenEngine.TRIGGERED)) != 0),
+                    "Token HUD state is separate for each player");
+            for (int elapsed = 40; elapsed <= 160; elapsed += 40) {
+                spider.damageCooldownTime = 0;
+                clock.set(100 + elapsed);
+                tokens.tick(List.of(first, second));
+                test.assertValueEqual(spider.getHealth(), spiderHealth - 3F * (elapsed / 40), "Echo applies one pulse every forty ticks");
+            }
+            tokens.clearEffects(first.getUUID());
+            test.assertValueEqual(first.getMaxHealth(), firstMax, "Removing owned effects restores the original maximum");
+            test.succeed();
+        } finally {
+            tokens.clearRound();
+            server.game().stopGame();
+            for (var player : List.of(first, second)) {
+                server.players().clear(player.getUUID());
+                server.leave(player);
+            }
+        }
+    }
+}
