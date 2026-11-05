@@ -15,8 +15,6 @@
   "runelegend.result.not_equipped": "没有装备该令牌。",
   "token.runelegend.sharpened_tip": "强化刃尖",
   "token.runelegend.sharpened_tip.description": "直接近战有 11% 概率使本击伤害增加 2 HP。",
-  "token.runelegend.wither_slayer": "凋零杀手",
-  "token.runelegend.wither_slayer.description": "累计承受五次敌对命中后，下一次直接近战施加凋零 II，持续 6 秒。",
   "token.runelegend.soul_siphon": "灵魂摄取",
   "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 9% 概率增加 2 HP 最大生命，持续 3 分钟。",
   "token.runelegend.echo": "残响",

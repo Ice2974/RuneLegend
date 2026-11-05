@@ -22,7 +22,6 @@ public final class TokenRegistry {
     public static TokenRegistry builtIn() {
         return new Builder()
                 .add("sharpened_tip", new SharpenedTipEffect(), MELEE)
-                .add("wither_slayer", new WitherSlayerEffect(), HURT, MELEE)
                 .add("soul_siphon", new SoulSiphonEffect(), KILL)
                 .add("echo", new EchoEffect(), KILL)
                 .add("immediate_counter", new ImmediateCounterEffect(), GUARD_SUCCESS, MELEE)

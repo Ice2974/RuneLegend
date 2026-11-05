@@ -16,7 +16,7 @@ import net.minecraft.network.chat.Component;
 import java.util.Set;
 
 public final class RuneLegendHud {
-    private static final Set<String> ICONS = Set.of("sharpened_tip", "wither_slayer", "soul_siphon", "echo", "immediate_counter");
+    private static final Set<String> ICONS = Set.of("sharpened_tip", "soul_siphon", "echo", "immediate_counter");
     private static final int VERTICAL_OFFSET = Integer.getInteger("runelegend.hudOffset", 0);
 
     private RuneLegendHud() {}

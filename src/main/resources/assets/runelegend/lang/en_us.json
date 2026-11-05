@@ -15,8 +15,6 @@
   "runelegend.result.not_equipped": "That token is not equipped.",
   "token.runelegend.sharpened_tip": "Sharpened Tip",
   "token.runelegend.sharpened_tip.description": "An 11% chance to add 2 HP to a direct melee hit.",
-  "token.runelegend.wither_slayer": "Wither Slayer",
-  "token.runelegend.wither_slayer.description": "After five hostile hits, your next direct melee hit inflicts Wither II for six seconds.",
   "token.runelegend.soul_siphon": "Soul Siphon",
   "token.runelegend.soul_siphon.description": "A 9% chance on a hostile kill to add 2 maximum HP for three minutes.",
   "token.runelegend.echo": "Echo",
