@@ -13,11 +13,10 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public final class RuneLegendPayloads {
-    public static final int PROTOCOL = 1;
-    public static final int TOKENS = 1, STAMINA = 2, GUARD = 4, ALL = TOKENS | STAMINA | GUARD;
+    public static final int PROTOCOL = 2;
+    public static final int TOKENS = 1, STAMINA = 2, ALL = TOKENS | STAMINA;
 
     private RuneLegendPayloads() {}
 
@@ -28,13 +27,10 @@ public final class RuneLegendPayloads {
     public static void register() {
         PayloadTypeRegistry.clientboundConfiguration().register(Hello.TYPE, Hello.CODEC);
         PayloadTypeRegistry.serverboundConfiguration().register(HelloAck.TYPE, HelloAck.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(GuardStart.TYPE, GuardStart.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(GuardEnd.TYPE, GuardEnd.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(StateResync.TYPE, StateResync.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(Rules.TYPE, Rules.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerSnapshot.TYPE, PlayerSnapshot.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(PlayerDelta.TYPE, PlayerDelta.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(GuardPose.TYPE, GuardPose.CODEC);
     }
 
     public record Hello(int version, long nonce) implements CustomPacketPayload {
@@ -53,22 +49,6 @@ public final class RuneLegendPayloads {
         @Override public Type<HelloAck> type() { return TYPE; }
     }
 
-    public record GuardStart(long input, long rulesRevision, int slot) implements CustomPacketPayload {
-        public static final Type<GuardStart> TYPE = id("guard_start");
-        static final StreamCodec<FriendlyByteBuf, GuardStart> CODEC = StreamCodec.of(
-                (buf, value) -> { buf.writeVarLong(value.input); buf.writeVarLong(value.rulesRevision); buf.writeByte(value.slot); },
-                buf -> new GuardStart(buf.readVarLong(), buf.readVarLong(), buf.readUnsignedByte()));
-        @Override public Type<GuardStart> type() { return TYPE; }
-    }
-
-    public record GuardEnd(long input, boolean released) implements CustomPacketPayload {
-        public static final Type<GuardEnd> TYPE = id("guard_end");
-        static final StreamCodec<FriendlyByteBuf, GuardEnd> CODEC = StreamCodec.of(
-                (buf, value) -> { buf.writeVarLong(value.input); buf.writeBoolean(value.released); },
-                buf -> new GuardEnd(buf.readVarLong(), buf.readBoolean()));
-        @Override public Type<GuardEnd> type() { return TYPE; }
-    }
-
     public record StateResync() implements CustomPacketPayload {
         public static final Type<StateResync> TYPE = id("state_resync");
         static final StreamCodec<FriendlyByteBuf, StateResync> CODEC = StreamCodec.unit(new StateResync());
@@ -80,15 +60,14 @@ public final class RuneLegendPayloads {
         static final StreamCodec<FriendlyByteBuf, Rules> CODEC = StreamCodec.of((buf, value) -> {
             var rules = value.rules;
             buf.writeBoolean(rules.running());
-            buf.writeBoolean(rules.guardEnabled());
             buf.writeVarLong(rules.round());
             buf.writeVarLong(rules.revision());
         }, buf -> new Rules(new RuleSnapshot(buf.readBoolean() ? GameState.RUNNING : GameState.WAITING,
-                buf.readBoolean(), buf.readVarLong(), buf.readVarLong())));
+                buf.readVarLong(), buf.readVarLong())));
         @Override public Type<Rules> type() { return TYPE; }
     }
 
-    public record View(List<TokenEngine.View> tokens, int stamina, boolean guarding, long input) {
+    public record View(List<TokenEngine.View> tokens, int stamina) {
         public View { tokens = List.copyOf(tokens); }
     }
 
@@ -114,20 +93,9 @@ public final class RuneLegendPayloads {
         @Override public Type<PlayerDelta> type() { return TYPE; }
     }
 
-    public record GuardPose(int entityId, UUID uuid, long revision, boolean guarding) implements CustomPacketPayload {
-        public static final Type<GuardPose> TYPE = id("guard_pose");
-        static final StreamCodec<FriendlyByteBuf, GuardPose> CODEC = StreamCodec.of((buf, value) -> {
-            buf.writeVarInt(value.entityId); buf.writeUUID(value.uuid);
-            buf.writeVarLong(value.revision); buf.writeBoolean(value.guarding);
-        }, buf -> new GuardPose(buf.readVarInt(), buf.readUUID(), buf.readVarLong(), buf.readBoolean()));
-        @Override public Type<GuardPose> type() { return TYPE; }
-    }
-
     public static View merge(View old, View incoming, int mask) {
         return new View((mask & TOKENS) != 0 ? incoming.tokens : old.tokens,
-                (mask & STAMINA) != 0 ? incoming.stamina : old.stamina,
-                (mask & GUARD) != 0 ? incoming.guarding : old.guarding,
-                (mask & GUARD) != 0 ? incoming.input : old.input);
+                (mask & STAMINA) != 0 ? incoming.stamina : old.stamina);
     }
 
     private static void writeView(FriendlyByteBuf buf, View view, int mask) {
@@ -142,10 +110,6 @@ public final class RuneLegendPayloads {
             }
         }
         if ((mask & STAMINA) != 0) buf.writeShort(view.stamina);
-        if ((mask & GUARD) != 0) {
-            buf.writeBoolean(view.guarding);
-            buf.writeVarLong(view.input);
-        }
     }
 
     private static View readView(FriendlyByteBuf buf, int mask) {
@@ -162,8 +126,6 @@ public final class RuneLegendPayloads {
         }
         int stamina = (mask & STAMINA) != 0 ? buf.readUnsignedShort() : StaminaManager.MAX;
         if (stamina > StaminaManager.MAX) throw new IllegalArgumentException("Invalid RuneLegend stamina");
-        boolean guarding = (mask & GUARD) != 0 && buf.readBoolean();
-        long input = (mask & GUARD) != 0 ? buf.readVarLong() : -1;
-        return new View(tokens, stamina, guarding, input);
+        return new View(tokens, stamina);
     }
 }

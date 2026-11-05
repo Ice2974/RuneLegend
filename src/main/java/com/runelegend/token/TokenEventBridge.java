@@ -7,7 +7,6 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
-import net.minecraft.world.phys.Vec3;
 import java.util.function.BooleanSupplier;
 
 /** Scoped to the original call, so nested damage never inherits an unrelated hit's metadata. */
@@ -19,6 +18,7 @@ public final class TokenEventBridge {
         private final boolean aliveBefore;
         private float effective;
         private float blocked;
+        private boolean settled;
 
         private Hit(LivingEntity victim, DamageSource source, float incoming) {
             this.victim = victim;
@@ -29,10 +29,8 @@ public final class TokenEventBridge {
     }
 
     private record Melee(ServerPlayer player, Entity victim, DamageSource source) {}
-    private record Explosion(Entity victim, DamageSource source, Vec3 center) {}
     private static final ThreadLocal<Hit> HITS = new ThreadLocal<>();
     private static final ThreadLocal<Melee> MELEE = new ThreadLocal<>();
-    private static final ThreadLocal<Explosion> EXPLOSIONS = new ThreadLocal<>();
 
     private TokenEventBridge() {}
 
@@ -44,19 +42,24 @@ public final class TokenEventBridge {
         HITS.set(hit);
         try {
             boolean accepted = original.getAsBoolean();
-            if (accepted && hit.aliveBefore && hit.effective > 0) dispatch(server, hit, level);
+            if (hit.aliveBefore && hit.settled) dispatch(server, hit, level, accepted && hit.effective > 0);
             return accepted;
         } finally {
             restore(HITS, previous);
         }
     }
 
-    public static void applied(LivingEntity victim, DamageSource source, float effective, float blocked) {
+    public static void applied(LivingEntity victim, DamageSource source, float effective) {
         var hit = HITS.get();
         if (hit != null && hit.victim == victim && hit.source == source) {
             hit.effective += effective;
-            hit.blocked += blocked;
+            hit.settled = true;
         }
+    }
+
+    public static void blocked(LivingEntity victim, DamageSource source, float blocked) {
+        var hit = HITS.get();
+        if (hit != null && hit.victim == victim && hit.source == source) hit.blocked = blocked;
     }
 
     public static boolean melee(ServerPlayer attacker, Entity victim, DamageSource source, BooleanSupplier original) {
@@ -69,30 +72,15 @@ public final class TokenEventBridge {
         }
     }
 
-    public static boolean explosion(Entity victim, DamageSource source, Vec3 center, BooleanSupplier original) {
-        var previous = EXPLOSIONS.get();
-        EXPLOSIONS.set(new Explosion(victim, source, center));
-        try {
-            return original.getAsBoolean();
-        } finally {
-            restore(EXPLOSIONS, previous);
-        }
-    }
-
-    public static Vec3 explosionCenter(Entity victim, DamageSource source) {
-        var explosion = EXPLOSIONS.get();
-        return explosion != null && explosion.victim == victim && explosion.source == source ? explosion.center : null;
-    }
-
-    private static void dispatch(RuneLegendServer server, Hit hit, ServerLevel level) {
+    private static void dispatch(RuneLegendServer server, Hit hit, ServerLevel level, boolean acceptedDamage) {
         var tokens = server.tokens();
         var victim = hit.victim;
         var source = hit.source;
         if (victim instanceof ServerPlayer player && player.isAlive()) {
-            tokens.dispatch(event(TokenEvent.Kind.HURT, player, victim, level, hit));
+            if (acceptedDamage) tokens.dispatch(event(TokenEvent.Kind.HURT, player, victim, level, hit));
             if (hit.blocked > 0) tokens.dispatch(event(TokenEvent.Kind.GUARD_SUCCESS, player, victim, level, hit));
         }
-        if (!(source.getEntity() instanceof ServerPlayer player) || player == victim) return;
+        if (!acceptedDamage || !(source.getEntity() instanceof ServerPlayer player) || player == victim) return;
         var melee = MELEE.get();
         if (melee != null && melee.player == player && melee.victim == victim && melee.source == source) {
             tokens.dispatch(event(TokenEvent.Kind.MELEE, player, victim, level, hit));

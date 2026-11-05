@@ -8,23 +8,21 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GameControllerTest {
-    @Test void guardNeedsBothGatesAndNoOpsDoNotStartANewRound() {
+    @Test void onlyRealTransitionsReviseTheRulesAndOnlyStartsAdvanceTheRound() {
         var transitions = new ArrayList<RuleSnapshot>();
         var game = new GameController(() -> {}, (old, current) -> transitions.add(current));
         assertEquals(GameState.WAITING, game.getRules().state());
-        assertTrue(game.setGuardEnabled(true));
-        assertFalse(game.getRules().canGuard());
+        assertFalse(game.stopGame());
         assertTrue(game.startGame());
-        assertTrue(game.getRules().canGuard());
+        assertTrue(game.getRules().running());
         assertFalse(game.startGame());
         assertEquals(1, game.getRules().round());
-        assertTrue(game.setGuardEnabled(false));
-        assertTrue(game.getRules().running());
-        assertFalse(game.getRules().canGuard());
         assertTrue(game.stopGame());
         assertFalse(game.stopGame());
-        assertEquals(4, transitions.size());
+        assertEquals(2, transitions.size());
+        assertEquals(2, game.getRules().revision());
         assertTrue(game.startGame());
         assertEquals(2, game.getRules().round());
+        assertEquals(3, game.getRules().revision());
     }
 }

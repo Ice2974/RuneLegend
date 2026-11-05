@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "#minecraft:bypasses_armor",
+    "#minecraft:bypasses_invulnerability",
+    "runelegend:token_damage"
+  ]
+}

@@ -10,15 +10,15 @@ import static com.runelegend.network.RuneLegendPayloads.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ProtocolStateTest {
-    @Test void staminaDeltaDoesNotReplaceEquipmentOrGuardState() {
+    @Test void staminaDeltaDoesNotReplaceEquipment() {
         var token = new TokenEngine.View(Identifier.parse("runelegend:echo"), TokenEngine.ACTIVE, 0, 50, 0);
-        var previous = new View(List.of(token), 20000, true, 8);
+        var previous = new View(List.of(token), 20000);
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
-            PlayerDelta.CODEC.encode(buffer, new PlayerDelta(3, 4, 21, STAMINA, new View(List.of(), 19500, false, -1)));
+            PlayerDelta.CODEC.encode(buffer, new PlayerDelta(3, 4, 21, STAMINA, new View(List.of(), 19500)));
             var packet = PlayerDelta.CODEC.decode(buffer);
             var merged = merge(previous, packet.state(), packet.mask());
-            assertEquals(new View(List.of(token), 19500, true, 8), merged);
+            assertEquals(new View(List.of(token), 19500), merged);
             assertEquals(0, buffer.readableBytes());
         } finally {
             buffer.release();

@@ -1,7 +1,8 @@
 package com.runelegend;
 
 import com.runelegend.api.RuleSnapshot;
-import com.runelegend.combat.GuardService;
+import com.runelegend.combat.GuardItems;
+import com.runelegend.combat.GuardStaminaService;
 import com.runelegend.game.GameController;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.PlayerTokenSavedData;
@@ -25,7 +26,7 @@ public final class RuneLegendServer {
     private final PlayerTokenService players;
     private final TokenEngine tokens;
     private final PlayerStateSync sync;
-    private final GuardService guards;
+    private final GuardStaminaService stamina;
     private final Map<UUID, ServerGamePacketListenerImpl> transports = new HashMap<>();
     private long tick;
 
@@ -36,7 +37,7 @@ public final class RuneLegendServer {
         players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
         tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);
-        guards = new GuardService(game, this::tick, sync::poseChanged);
+        stamina = new GuardStaminaService(this::tick);
     }
 
     public static RuneLegendServer find(MinecraftServer minecraft) { return INSTANCES.get(minecraft); }
@@ -48,14 +49,14 @@ public final class RuneLegendServer {
     public TokenRegistry registry() { return registry; }
     public PlayerTokenService players() { return players; }
     public TokenEngine tokens() { return tokens; }
-    public GuardService guards() { return guards; }
+    public GuardStaminaService stamina() { return stamina; }
     public PlayerStateSync sync() { return sync; }
 
     public void join(ServerPlayer player) {
         checkThread();
         transports.put(player.getUUID(), player.connection);
         tokens.clearEffects(player.getUUID());
-        guards.join(player);
+        stamina.join(player);
         sync.join(player);
     }
 
@@ -65,7 +66,7 @@ public final class RuneLegendServer {
         if (current != null && current != player.connection) return;
         transports.remove(player.getUUID());
         sync.leave(player);
-        guards.leave(player);
+        stamina.leave(player);
         tokens.clearEffects(player.getUUID());
     }
 
@@ -75,30 +76,27 @@ public final class RuneLegendServer {
 
     public void died(ServerPlayer player) {
         checkThread();
-        guards.forceStop(player);
+        if (GuardItems.using(player)) player.stopUsingItem();
         tokens.clearEffects(player.getUUID());
     }
 
     void endTick() {
         tick++;
         var online = minecraft.getPlayerList().getPlayers();
-        online.forEach(guards::tick);
+        online.forEach(stamina::tick);
         tokens.tick(online);
         online.forEach(sync::update);
     }
 
     void close() {
         tokens.clearRound();
-        guards.forceStopAll();
     }
 
     private void rulesChanged(RuleSnapshot before, RuleSnapshot after) {
         var online = minecraft.getPlayerList().getPlayers();
-        if (!after.canGuard()) guards.forceStopAll();
         if (before.state() != after.state()) {
             tokens.clearRound();
-            online.forEach(guards::resetRound);
-
+            online.forEach(stamina::resetRound);
         }
         online.forEach(sync::rules);
         online.forEach(sync::update);

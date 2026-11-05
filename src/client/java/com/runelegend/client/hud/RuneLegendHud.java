@@ -1,8 +1,8 @@
 package com.runelegend.client.hud;
 
 import com.runelegend.RuneLegendMod;
-import com.runelegend.client.input.GuardInputController;
 import com.runelegend.client.network.ClientStateCache;
+import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.StaminaManager;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -30,8 +30,9 @@ public final class RuneLegendHud {
         var cache = ClientStateCache.INSTANCE;
         var view = cache.view();
         if (view == null || client.player == null || client.gui.hud.isHidden() || client.player.isSpectator()) return;
-        boolean showStamina = view.stamina() < StaminaManager.MAX || GuardInputController.INSTANCE.pose(client);
-        int slots = view.tokens().size();
+        boolean showStamina = view.stamina() < StaminaManager.MAX || GuardItems.using(client.player);
+        var rules = cache.rules();
+        int slots = rules != null && rules.running() ? view.tokens().size() : 0;
         if (slots == 0 && !showStamina) return;
         var layout = HudLayout.place(graphics.guiWidth(), graphics.guiHeight(), slots, VERTICAL_OFFSET);
         for (int i = 0; i < slots; i++) {

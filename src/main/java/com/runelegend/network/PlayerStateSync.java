@@ -2,7 +2,6 @@ package com.runelegend.network;
 
 import com.runelegend.RuneLegendServer;
 import com.runelegend.combat.StaminaManager;
-import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.HashMap;
@@ -20,7 +19,6 @@ public final class PlayerStateSync {
 
     private final RuneLegendServer server;
     private final Map<UUID, Peer> peers = new HashMap<>();
-    private long poseRevision;
 
     public PlayerStateSync(RuneLegendServer server) { this.server = server; }
 
@@ -60,9 +58,8 @@ public final class PlayerStateSync {
         var after = current(player);
         int mask = 0;
         if (!before.tokens().equals(after.tokens())) mask |= TOKENS;
-        if (before.guarding() != after.guarding() || before.input() != after.input()) mask |= GUARD;
         if (before.stamina() != after.stamina() && (server.tick() - peer.staminaSent >= 4
-                || before.guarding() != after.guarding() || after.stamina() == 0 || after.stamina() == StaminaManager.MAX)) {
+                || after.stamina() == 0 || after.stamina() == StaminaManager.MAX)) {
             mask |= STAMINA;
             peer.staminaSent = server.tick();
         }
@@ -73,25 +70,6 @@ public final class PlayerStateSync {
     }
 
     private View current(ServerPlayer player) {
-        var guard = server.guards().get(player);
-        return new View(server.tokens().views(player), guard == null ? StaminaManager.MAX : guard.stamina(),
-                guard != null && guard.guarding(), guard == null ? -1 : guard.lastInput());
-    }
-
-    public void poseChanged(ServerPlayer player) {
-        long revision = ++poseRevision;
-        var guard = server.guards().get(player);
-        var pose = new GuardPose(player.getId(), player.getUUID(), revision, guard != null && guard.guarding());
-        for (var viewer : PlayerLookup.tracking(player)) if (viewer != player) sendPose(viewer, pose);
-        update(player);
-    }
-
-    public void tracking(ServerPlayer target, ServerPlayer viewer, boolean tracking) {
-        var runtime = server.guards().get(target);
-        sendPose(viewer, new GuardPose(target.getId(), target.getUUID(), ++poseRevision, tracking && runtime != null && runtime.guarding()));
-    }
-
-    private void sendPose(ServerPlayer viewer, GuardPose pose) {
-        if (ServerPlayNetworking.canSend(viewer, GuardPose.TYPE)) ServerPlayNetworking.send(viewer, pose);
+        return new View(server.tokens().views(player), server.stamina().stamina(player));
     }
 }

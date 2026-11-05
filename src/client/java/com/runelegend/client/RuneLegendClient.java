@@ -9,7 +9,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 public final class RuneLegendClient implements ClientModInitializer {
     @Override public void onInitializeClient() {
         ClientNetworking.register();
-        ClientTickEvents.END_CLIENT_TICK.register(client -> GuardInputController.INSTANCE.tick(client));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            ClientNetworking.tick();
+            GuardInputController.INSTANCE.tick(client);
+        });
         RuneLegendHud.register();
     }
 }

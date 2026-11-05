@@ -1,20 +1,9 @@
 package com.runelegend.combat;
 
-import net.minecraft.world.item.ItemStack;
-
-public final class PlayerCombatRuntime {
+final class PlayerCombatRuntime {
+    static final long NOT_USING = -1;
     int stamina = StaminaManager.MAX;
+    long startedAt = NOT_USING;
     long stoppedAt = -StaminaManager.REGEN_DELAY - 1L;
-    boolean guarding;
     boolean releaseRequired;
-    long lastInput = -1;
-    long lastStartTick = Long.MIN_VALUE;
-    int slot = -1;
-    ItemStack weapon = ItemStack.EMPTY;
-    long startedAt;
-    net.minecraft.server.level.ServerLevel level;
-
-    public int stamina() { return stamina; }
-    public boolean guarding() { return guarding; }
-    public long lastInput() { return lastInput; }
 }

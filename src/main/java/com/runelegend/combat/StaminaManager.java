@@ -10,6 +10,7 @@ public final class StaminaManager {
 
     private StaminaManager() {}
 
+    public static boolean canStart(int value) { return value >= MIN_TO_START; }
     public static int drain(int value) { return Math.max(0, value - DRAIN_PER_TICK); }
     public static int recover(int value, long tick, long stoppedAt) {
         return tick - stoppedAt > REGEN_DELAY ? Math.min(MAX, value + REGEN_PER_TICK) : value;

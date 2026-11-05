@@ -6,12 +6,61 @@ import com.runelegend.player.PlayerTokenService;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityTypes;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class TokenEffectsGameTests {
+    @GameTest
+    public void settledHurtMeleeAndArrowKillStillReachTokens(GameTestHelper test) {
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var player = GuardGameTests.fixture(test);
+        var attacker = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
+        var meleeTarget = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 3);
+        var arrowTarget = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 4);
+        var arrow = test.spawn(EntityTypes.ARROW, 2, 3, 3);
+        player.setPos(test.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 2.5)));
+        try {
+            server.game().stopGame();
+            for (String id : List.of("wither_slayer", "soul_siphon")) {
+                test.assertValueEqual(server.players().equip(player.getUUID(), RuneLegendMod.id(id)),
+                        PlayerTokenService.Result.CHANGED, "Equip " + id);
+            }
+            server.game().startGame();
+            for (int hit = 0; hit < 4; hit++) {
+                player.damageCooldownTime = 0;
+                player.hurtServer(level, player.damageSources().mobAttack(attacker), 1);
+            }
+            player.damageCooldownTime = 0;
+            player.hurtServer(level, player.damageSources().source(TokenEngine.TOKEN_DAMAGE, attacker), 1);
+            test.assertTrue((server.tokens().views(player).getFirst().flags() & TokenEngine.READY) == 0,
+                    "Token-generated damage does not build Wither Slayer charge");
+            player.damageCooldownTime = 0;
+            player.hurtServer(level, player.damageSources().mobAttack(attacker), 1);
+            test.assertTrue((server.tokens().views(player).getFirst().flags() & TokenEngine.READY) != 0,
+                    "Five accepted hits charge Wither Slayer");
+            player.attack(meleeTarget);
+            test.assertTrue((server.tokens().views(player).getFirst().flags() & TokenEngine.TRIGGERED) != 0,
+                    "A real melee hit spends that charge");
+
+            long seed = 0;
+            while (RandomSource.create(seed).nextDouble() >= 0.09) seed++;
+            player.getRandom().setSeed(seed);
+            float maxHealth = player.getMaxHealth();
+            arrowTarget.hurtServer(level, level.damageSources().arrow(arrow, player), 100);
+            test.assertTrue(!arrowTarget.isAlive(), "Arrow damage was lethal");
+            test.assertValueEqual(player.getMaxHealth(), maxHealth + 2, "The lethal arrow is credited to its shooter");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.players().clear(player.getUUID());
+            server.leave(player);
+        }
+    }
+
     @GameTest
     public void effectsUseIndependentPlayersAndOwnedTasks(GameTestHelper test) {
         var level = test.getLevel();

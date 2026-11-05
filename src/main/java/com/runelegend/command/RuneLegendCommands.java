@@ -34,13 +34,7 @@ public final class RuneLegendCommands {
                             .then(literal("start").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
                                     .executes(ctx -> changeRules(ctx, instance(ctx).game().startGame())))
                             .then(literal("stop").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
-                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().stopGame()))))
-                    .then(literal("guard")
-                            .then(literal("status").executes(RuneLegendCommands::rules))
-                            .then(literal("enable").requires(PermissionPredicates.require(RuneLegendMod.id("guard"), PermissionLevel.GAMEMASTERS))
-                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().setGuardEnabled(true))))
-                            .then(literal("disable").requires(PermissionPredicates.require(RuneLegendMod.id("guard"), PermissionLevel.GAMEMASTERS))
-                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().setGuardEnabled(false)))));
+                                    .executes(ctx -> changeRules(ctx, instance(ctx).game().stopGame()))));
             addEquipment(root, ctx -> ctx.getSource().getPlayerOrException());
             var admin = argument("player", EntityArgument.player());
             addEquipment(admin, ctx -> EntityArgument.getPlayer(ctx, "player"));
@@ -125,8 +119,7 @@ public final class RuneLegendCommands {
 
     private static int status(CommandContext<CommandSourceStack> ctx, ServerPlayer player) {
         var server = instance(ctx);
-        var runtime = server.guards().get(player);
-        int percent = runtime == null ? 100 : runtime.stamina() * 100 / StaminaManager.MAX;
+        int percent = server.stamina().stamina(player) * 100 / StaminaManager.MAX;
         var view = server.tokens().views(player);
         ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.status", player.getDisplayName(), percent), false);
         for (var token : view) {
@@ -146,9 +139,7 @@ public final class RuneLegendCommands {
 
     private static int rules(CommandContext<CommandSourceStack> ctx) {
         var rules = instance(ctx).game().getRules();
-        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.rules", rules.state().name(),
-                RuneLegendText.message("runelegend.switch." + rules.guardEnabled()),
-                RuneLegendText.message("runelegend.switch." + rules.canGuard())), false);
+        ctx.getSource().sendSuccess(() -> RuneLegendText.message("runelegend.rules", rules.state().name()), false);
         return 1;
     }
 

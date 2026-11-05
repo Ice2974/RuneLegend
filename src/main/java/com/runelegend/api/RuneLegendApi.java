@@ -15,5 +15,4 @@ public interface RuneLegendApi {
     RuleSnapshot getRules();
     boolean startGame();
     boolean stopGame();
-    boolean setGuardEnabled(boolean enabled);
 }

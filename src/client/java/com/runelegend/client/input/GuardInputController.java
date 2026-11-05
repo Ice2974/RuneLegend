@@ -1,132 +1,75 @@
 package com.runelegend.client.input;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.runelegend.client.network.ClientStateCache;
-import com.runelegend.combat.GuardPolicy;
-import com.runelegend.combat.StaminaManager;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import com.runelegend.client.network.ClientNetworking;
+import com.runelegend.combat.GuardItems;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.item.ItemStack;
 import org.lwjgl.sdl.SDLMouse;
 
-import static com.runelegend.network.RuneLegendPayloads.*;
-
+/** Prevents vanilla's held-use retry from acting as a new press after a guard attempt. */
 public final class GuardInputController {
     public static final GuardInputController INSTANCE = new GuardInputController();
-    private final ClientStateCache cache = ClientStateCache.INSTANCE;
-    private long input;
-    private long started = -1;
-    private long predictUntil;
-    private long resyncAt;
-    private long swallowThrough = -1;
-    private boolean claimed;
-    private boolean awaitingRelease;
-    private int slot;
-    private ItemStack weapon = ItemStack.EMPTY;
-    private Object level;
-    private InputConstants.Key boundKey;
+    private InputConstants.Key binding;
+    private boolean attempted;
+    private boolean releasePending;
 
     private GuardInputController() {}
 
+    public boolean allowAttempt(Minecraft client) {
+        if (!client.options.keyUse.isDown() || attempted) return false;
+        if (releasePending) {
+            sendRelease(client);
+            releasePending = false;
+        }
+        attempted = true;
+        return true;
+    }
+
     public void key(Minecraft client, KeyMapping mapping, InputConstants.Key key, boolean down) {
         if (client == null || client.options == null || mapping != client.options.keyUse) return;
-        boundKey = key;
-        if (down) {
-            if (claimed || awaitingRelease) return;
-            swallowThrough = -1;
-            if (!eligible(client) || !ClientPlayNetworking.canSend(GuardStart.TYPE)) return;
-            claimed = true;
-            slot = client.player.getInventory().getSelectedSlot();
-            weapon = client.player.getMainHandItem();
-            level = client.level;
-            started = ++input;
-            predictUntil = cache.tick() + 12;
-            ClientPlayNetworking.send(new GuardStart(started, cache.rules().revision(), slot));
-        } else if (claimed || awaitingRelease) {
-            if (inGame(client) && !physicallyDown(client)) release();
-            else cancel();
-        }
+        if (down && !attempted) binding = key;
+        if (!down && attempted && acceptsRelease(client) && !bindingStillHeld()) observeRelease(client);
     }
 
     public void tick(Minecraft client) {
-        cache.tick(client.level);
-        if (cache.desynced() && cache.tick() >= resyncAt && ClientPlayNetworking.canSend(StateResync.TYPE)) {
-            resyncAt = cache.tick() + 20;
-            ClientPlayNetworking.send(new StateResync());
+        if (attempted && !client.options.keyUse.isDown() && acceptsRelease(client) && !bindingStillHeld()) {
+            observeRelease(client);
         }
-        if (claimed && !stillHoldingWeapon(client)) cancel();
-        if (awaitingRelease && inGame(client) && !physicallyDown(client)) release();
-        if (pose(client)) client.player.setSprinting(false);
     }
 
-    public boolean suppressUse(Minecraft client) {
-        return inGame(client) && (claimed || cache.tick() <= swallowThrough);
+    private void observeRelease(Minecraft client) {
+        attempted = false;
+        // A release that arrives during world transfer may be ignored. Repeat it before the
+        // next vanilla use request; both actions are ordered and release is idempotent.
+        releasePending = true;
+        sendRelease(client);
     }
 
-    public boolean pose(Minecraft client) {
-        if (!claimed || !stillHoldingWeapon(client) || cache.rules() == null || !cache.rules().canGuard()) return false;
-        var state = cache.view();
-        return state != null && (state.input() >= started ? state.guarding() : cache.tick() < predictUntil);
+    private static void sendRelease(Minecraft client) {
+        if (client.player != null && client.gameMode != null && ClientNetworking.active()
+                && (!client.player.isUsingItem() || GuardItems.using(client.player))) {
+            client.gameMode.releaseUsingItem(client.player);
+        }
     }
 
-    private boolean eligible(Minecraft client) {
-        if (!inGame(client) || client.player == null || !client.player.isAlive() || client.player.isSpectator()
-                || client.player.isPassenger() || client.player.isSleeping() || client.player.isUsingItem()) return false;
-        var rules = cache.rules();
-        var state = cache.view();
-        return rules != null && rules.canGuard() && state != null
-                && state.stamina() >= StaminaManager.MIN_TO_START && GuardPolicy.sword(client.player.getMainHandItem());
-    }
-
-    private boolean stillHoldingWeapon(Minecraft client) {
-        return inGame(client) && client.player != null && client.player.isAlive() && client.level == level
-                && client.player.getInventory().getSelectedSlot() == slot && client.player.getMainHandItem() == weapon;
-    }
-
-    private boolean inGame(Minecraft client) {
+    private static boolean acceptsRelease(Minecraft client) {
         return client.isWindowActive() && client.gui.screen() == null && client.gui.overlay() == null;
     }
 
-    private boolean physicallyDown(Minecraft client) {
-        if (boundKey != null && boundKey.getType() == InputConstants.Type.MOUSE) {
-            return boundKey.getValue() > 0 && (SDLMouse.SDL_GetMouseState(null, null) & (1 << (boundKey.getValue() - 1))) != 0;
+    private boolean bindingStillHeld() {
+        if (binding == null) return false;
+        if (binding.getType() == InputConstants.Type.MOUSE) {
+            int button = binding.getValue();
+            return button > 0 && (SDLMouse.SDL_GetMouseState(null, null) & (1 << (button - 1))) != 0;
         }
-        if (boundKey != null && boundKey.getType() == InputConstants.Type.KEYBOARD) {
-            return InputConstants.isKeyDown(boundKey.getValue());
-        }
-        return client.options.keyUse.isDown();
-    }
-
-    private void cancel() {
-        if (!claimed) return;
-        claimed = false;
-        awaitingRelease = true;
-        weapon = ItemStack.EMPTY;
-        sendEnd(false);
-    }
-
-    private void release() {
-        claimed = false;
-        awaitingRelease = false;
-        weapon = ItemStack.EMPTY;
-        swallowThrough = cache.tick();
-        sendEnd(true);
-    }
-
-    private void sendEnd(boolean released) {
-        if (ClientPlayNetworking.canSend(GuardEnd.TYPE)) ClientPlayNetworking.send(new GuardEnd(++input, released));
+        if (binding.getType() == InputConstants.Type.KEYBOARD) return InputConstants.isKeyDown(binding.getValue());
+        return false;
     }
 
     public void clear() {
-        input = 0;
-        started = -1;
-        claimed = false;
-        awaitingRelease = false;
-        swallowThrough = -1;
-        resyncAt = 0;
-        weapon = ItemStack.EMPTY;
-        level = null;
-        boundKey = null;
+        attempted = false;
+        releasePending = false;
+        binding = null;
     }
 }

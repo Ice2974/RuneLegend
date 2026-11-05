@@ -5,6 +5,11 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StaminaManagerTest {
+    @Test void exactStartupThreshold() {
+        assertFalse(StaminaManager.canStart(1999));
+        assertTrue(StaminaManager.canStart(2000));
+    }
+
     @Test void exactDrainAndRecoveryBoundaries() {
         int units = StaminaManager.MAX;
         for (int i = 0; i < 159; i++) units = StaminaManager.drain(units);
