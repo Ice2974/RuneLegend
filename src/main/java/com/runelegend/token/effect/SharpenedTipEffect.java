@@ -4,6 +4,6 @@ import com.runelegend.token.*;
 
 public final class SharpenedTipEffect implements TokenEffectHandler {
     @Override public float addMeleeDamage(TokenEngine.Context context, TokenRuntimeState state) {
-        return context.roll(0.11) ? 2 : 0;
+        return context.roll(0.50) ? 2 : 0;
     }
 }

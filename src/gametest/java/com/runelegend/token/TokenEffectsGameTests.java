@@ -27,7 +27,7 @@ public final class TokenEffectsGameTests {
                     PlayerTokenService.Result.CHANGED, "Equip Soul Siphon");
             server.game().startGame();
             long seed = 0;
-            while (RandomSource.create(seed).nextDouble() >= 0.09) seed++;
+            while (RandomSource.create(seed).nextDouble() >= 0.05) seed++;
             player.getRandom().setSeed(seed);
             float maxHealth = player.getMaxHealth();
             arrowTarget.hurtServer(level, level.damageSources().arrow(arrow, player), 100);
@@ -76,14 +76,14 @@ public final class TokenEffectsGameTests {
             test.assertValueEqual(second.getMaxHealth(), firstMax, "An identical token does not buff the other player");
             test.assertTrue(tokens.views(second).stream().noneMatch(view -> (view.flags() & (TokenEngine.ACTIVE | TokenEngine.TRIGGERED)) != 0),
                     "Token HUD state is separate for each player");
-            for (int elapsed = 40; elapsed <= 160; elapsed += 40) {
+            for (int elapsed = 20; elapsed <= 160; elapsed += 20) {
                 spider.damageCooldownTime = 0;
                 clock.set(100 + elapsed);
                 tokens.tick(List.of(first, second));
-                test.assertValueEqual(spider.getHealth(), spiderHealth - 3F * (elapsed / 40), "Echo applies one pulse every forty ticks");
+                test.assertValueEqual(spider.getHealth(), spiderHealth - 2F * (elapsed / 20), "Echo applies one pulse every twenty ticks");
             }
             tokens.clearEffects(first.getUUID());
-            test.assertValueEqual(first.getMaxHealth(), firstMax, "Removing owned effects restores the original maximum");
+            test.assertValueEqual(first.getMaxHealth(), firstMax + 2, "Soul Siphon maximum health is permanent");
             test.succeed();
         } finally {
             tokens.clearRound();

@@ -15,12 +15,12 @@ public final class EchoEffect implements TokenEffectHandler {
         context.replaceEffect("echo", () -> {});
         state.flash(start);
         state.activeUntil = start + 160;
-        for (int elapsed = 40; elapsed <= 160; elapsed += 40) {
+        for (int elapsed = 20; elapsed <= 160; elapsed += 20) {
             context.at("echo", start + elapsed, () -> {
                 var area = new AABB(center, center).inflate(RADIUS);
                 for (var enemy : level.getEntitiesOfClass(LivingEntity.class, area,
                         mob -> mob.isAlive() && TokenTargeting.enemy(mob) && mob.distanceToSqr(center) <= RADIUS * RADIUS)) {
-                    context.damage(level, enemy, 3);
+                    context.damage(level, enemy, 2);
                 }
             });
         }

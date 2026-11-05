@@ -159,23 +159,23 @@ public final class GuardGameTests {
             test.assertValueEqual(server.players().equip(player.getUUID(), RuneLegendMod.id("immediate_counter")),
                     PlayerTokenService.Result.CHANGED, "Equip Immediate Counter");
             start(test, player, SWORD);
-            reset(player, origin, 9);
+            reset(player, origin, 20);
             mob.setPos(origin.add(0, 0, 1));
-            hit(test, player, player.damageSources().mobAttack(mob), 6, "Guard in WAITING");
+            hit(test, player, player.damageSources().mobAttack(mob), 17, "Guard in WAITING");
             test.assertTrue(!counterActive(server, player), "WAITING does not dispatch GUARD_SUCCESS");
 
             server.game().startGame();
             test.assertTrue(player.isBlocking(), "Starting a game does not stop vanilla item use");
-            reset(player, origin, 9);
+            reset(player, origin, 20);
             mob.setPos(origin.add(0, 0, -1));
             var source = player.damageSources().mobAttack(mob);
-            hit(test, player, source, 3, "Rear hit");
+            hit(test, player, source, 14, "Rear hit");
             test.assertTrue(!counterActive(server, player), "A zero block cannot activate the token");
             mob.setPos(origin.add(0, 0, 1));
             test.assertTrue(!player.hurtServer(level, source, 6), "A weaker hit in vanilla cooldown is ignored");
             test.assertTrue(!counterActive(server, player), "An unsettled hit cannot activate the token");
-            reset(player, origin, 9);
-            hit(test, player, source, 6, "Front half block");
+            reset(player, origin, 20);
+            hit(test, player, source, 17, "Front half block");
             test.assertTrue(counterActive(server, player), "Partial vanilla block activates Immediate Counter");
             test.assertValueEqual(server.tokens().melee(player, 6).damage(), 9F, "Counter adds 3 HP to melee");
 
@@ -185,9 +185,9 @@ public final class GuardGameTests {
             release(player);
             start(test, player, FULL_SWORD);
             server.game().startGame();
-            reset(player, origin, 9);
+            reset(player, origin, 20);
             test.assertTrue(!player.hurtServer(level, source, 6), "Vanilla returns false for a full block");
-            test.assertValueEqual(player.getHealth(), 9F, "Full block removes all incoming damage");
+            test.assertValueEqual(player.getHealth(), 20F, "Full block removes all incoming damage");
             test.assertTrue(counterActive(server, player), "A settled full block can activate the token");
             test.succeed();
         } finally {

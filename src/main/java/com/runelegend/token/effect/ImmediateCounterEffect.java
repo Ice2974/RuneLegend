@@ -5,7 +5,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 public final class ImmediateCounterEffect implements TokenEffectHandler {
     @Override public boolean ready(ServerPlayer player, TokenRuntimeState state, long tick) {
-        return tick >= state.cooldownUntil && player.getHealth() < player.getMaxHealth() / 2;
+        return tick >= state.cooldownUntil;
     }
 
     @Override public float addMeleeDamage(TokenEngine.Context context, TokenRuntimeState state) {

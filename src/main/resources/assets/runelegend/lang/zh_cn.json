@@ -14,13 +14,13 @@
   "runelegend.result.full": "三个令牌槽已满。",
   "runelegend.result.not_equipped": "没有装备该令牌。",
   "token.runelegend.sharpened_tip": "强化刃尖",
-  "token.runelegend.sharpened_tip.description": "直接近战有 11% 概率使本击伤害增加 2 HP。",
+  "token.runelegend.sharpened_tip.description": "直接近战有 50% 概率使本击伤害增加 2 HP。",
   "token.runelegend.soul_siphon": "灵魂摄取",
-  "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 9% 概率增加 2 HP 最大生命，持续 3 分钟。",
+  "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 5% 概率永久增加 2 HP 最大生命。",
   "token.runelegend.echo": "残响",
-  "token.runelegend.echo.description": "击杀敌对怪物时有 50% 概率留下半径 5 格的区域，8 秒内每 2 秒对敌对目标造成 3 HP 伤害。",
+  "token.runelegend.echo.description": "击杀敌对怪物时有 50% 概率留下半径 5 格的区域，8 秒内每秒对敌对目标造成 2 HP 伤害。",
   "token.runelegend.immediate_counter": "即刻反击",
-  "token.runelegend.immediate_counter.description": "低于半血时成功格挡，随后 8 秒直接近战每击增加 3 HP；冷却 12 秒。",
+  "token.runelegend.immediate_counter.description": "成功格挡后，随后 8 秒直接近战每击增加 3 HP；冷却 12 秒。",
   "death.attack.runelegend_token": "%1$s 被令牌击败了",
   "death.attack.runelegend_token.player": "%1$s 被 %2$s 的令牌击败了"
 }

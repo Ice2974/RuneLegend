@@ -14,13 +14,13 @@
   "runelegend.result.full": "All three token slots are full.",
   "runelegend.result.not_equipped": "That token is not equipped.",
   "token.runelegend.sharpened_tip": "Sharpened Tip",
-  "token.runelegend.sharpened_tip.description": "An 11% chance to add 2 HP to a direct melee hit.",
+  "token.runelegend.sharpened_tip.description": "A 50% chance to add 2 HP to a direct melee hit.",
   "token.runelegend.soul_siphon": "Soul Siphon",
-  "token.runelegend.soul_siphon.description": "A 9% chance on a hostile kill to add 2 maximum HP for three minutes.",
+  "token.runelegend.soul_siphon.description": "A 5% chance on a hostile kill to permanently add 2 maximum HP.",
   "token.runelegend.echo": "Echo",
-  "token.runelegend.echo.description": "A 50% chance on a hostile kill to leave a five-block zone. It deals 3 HP to hostiles every two seconds for eight seconds.",
+  "token.runelegend.echo.description": "A 50% chance on a hostile kill to leave a five-block zone. It deals 2 HP to hostiles every second for eight seconds.",
   "token.runelegend.immediate_counter": "Immediate Counter",
-  "token.runelegend.immediate_counter.description": "Guard a hit while below half health to add 3 HP to direct melee hits for eight seconds, then cool down for twelve seconds.",
+  "token.runelegend.immediate_counter.description": "Guard a hit to add 3 HP to direct melee hits for eight seconds, then cool down for twelve seconds.",
   "death.attack.runelegend_token": "%1$s was felled by a rune",
   "death.attack.runelegend_token.player": "%1$s was felled by %2$s's rune"
 }
