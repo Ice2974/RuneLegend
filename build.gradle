@@ -4,7 +4,7 @@ plugins {
 
 version = project.mod_version
 group = 'com.runelegend'
-base.archivesName = 'runelegend'
+base.archivesName = 'RuneLegend-Core'
 
 repositories { mavenCentral() }
 

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "runelegend",
   "version": "${version}",
-  "name": "RuneLegend",
-  "description": "Map-controlled rune tokens, directional sword guarding and stamina.",
+  "name": "RuneLegend Core",
+  "description": "Map-controlled RuneLenged tokens, directional sword guarding and stamina.",
   "environment": "*",
   "entrypoints": {
     "main": ["com.runelegend.RuneLegendMod"],
