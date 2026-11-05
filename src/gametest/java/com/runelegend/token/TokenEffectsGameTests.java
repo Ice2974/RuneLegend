@@ -8,14 +8,96 @@ import com.runelegend.player.PlayerTokenService;
 import com.runelegend.test.GuardGameTests;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantments;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class TokenEffectsGameTests {
+    @GameTest
+    public void directAndMeleeBonusDamageBypassArmorAndProtectionOnly(GameTestHelper test) {
+        var level = test.getLevel();
+        var server = RuneLegendServer.find(level.getServer());
+        var attacker = GuardGameTests.fixture(test);
+        var defender = GuardGameTests.fixture(test);
+        var zombie = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 3);
+        attacker.setPos(test.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 2.5)));
+        defender.setPos(test.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 4.5)));
+        var targets = List.of(zombie, defender);
+        try {
+            server.game().stopGame();
+            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("immediate_counter")),
+                    PlayerTokenService.Result.CHANGED, "Equip Immediate Counter");
+            test.assertValueEqual(server.players().equip(attacker.getUUID(), RuneLegendMod.id("sharpened_tip")),
+                    PlayerTokenService.Result.CHANGED, "Equip Sharpened Tip");
+            float[] normal = new float[targets.size()];
+            for (int i = 0; i < targets.size(); i++) {
+                var target = targets.get(i);
+                target.getAttribute(Attributes.ARMOR).setBaseValue(12);
+                var armor = new ItemStack(Items.DIAMOND_CHESTPLATE);
+                armor.enchant(level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.PROTECTION), 4);
+                target.setItemSlot(EquipmentSlot.CHEST, armor);
+                float direct = hit(target, () -> target.hurtServer(level, TokenEngine.directDamageSource(level, attacker), 6));
+                near(test, direct, 6F, "The direct source ignores both armor and Protection");
+                float ordinary = hit(target, () -> target.hurtServer(level, level.damageSources().magic(), 6));
+                test.assertTrue(ordinary > 0 && ordinary < 6, "Vanilla magic still uses Protection");
+                float poison = hit(target, () -> MobEffects.POISON.value().applyEffectTick(level, target, 0));
+                test.assertTrue(poison > 0 && poison < 1, "Vanilla poison still uses Protection");
+                target.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 100));
+                near(test, hit(target, () -> target.hurtServer(level, TokenEngine.directDamageSource(level, attacker), 6)),
+                        4.8F, "Resistance still reduces direct token damage");
+                normal[i] = hit(target, () -> {
+                    attacker.resetAttackStrengthTicker();
+                    attacker.attack(target);
+                });
+                test.assertTrue(normal[i] > 0, "The base melee hit settles");
+            }
+
+            server.game().startGame();
+            server.tokens().dispatch(new TokenEvent(TokenEvent.Kind.GUARD_SUCCESS, attacker, attacker, level, null, 6, 3, 3));
+            long seed = 0;
+            while (RandomSource.create(seed).nextDouble() >= 0.50) seed++;
+            for (int i = 0; i < targets.size(); i++) {
+                var target = targets.get(i);
+                attacker.getRandom().setSeed(seed);
+                float boosted = hit(target, () -> {
+                    attacker.resetAttackStrengthTicker();
+                    attacker.attack(target);
+                });
+                near(test, boosted, normal[i] + 4F, "Base damage is unchanged; only the combined 5 HP bonus bypasses equipment");
+            }
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.players().clear(attacker.getUUID());
+            server.leave(attacker);
+            server.leave(defender);
+        }
+    }
+
+    private static float hit(LivingEntity target, Runnable damage) {
+        target.setHealth(target.getMaxHealth());
+        target.damageCooldownTime = 0;
+        float before = target.getHealth();
+        damage.run();
+        return before - target.getHealth();
+    }
+
+    private static void near(GameTestHelper test, float actual, float expected, String message) {
+        test.assertTrue(Math.abs(actual - expected) < 0.001F, message + ": expected " + expected + ", got " + actual);
+    }
+
     @GameTest
     public void onlyAnOptedInTokenPublishesPreparation(GameTestHelper test) {
         var minecraft = test.getLevel().getServer();
@@ -109,7 +191,7 @@ public final class TokenEffectsGameTests {
             test.assertValueEqual(first.getMaxHealth(), firstMax, "WAITING disables token effects");
             server.game().startGame();
             var boost = tokens.melee(first, 6);
-            test.assertValueEqual(boost.damage(), 8F, "Sharpened Tip adds damage to the original hit");
+            test.assertValueEqual(boost.bonusDamage(), 2F, "Sharpened Tip contributes only the separate bonus");
             tokens.confirmBoost(first, boost.applied());
             tokens.dispatch(kill);
             tokens.dispatch(kill);

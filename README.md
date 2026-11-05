@@ -17,12 +17,16 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 
 | ID | 名称 | 效果 |
 | --- | --- | --- |
-| `runelegend:sharpened_tip` | 强化刃尖 | 直接近战命中 50% 概率额外造成 2 HP 伤害 |
+| `runelegend:sharpened_tip` | 强化刃尖 | 直接近战命中 50% 概率额外造成 2 HP 真伤 |
 | `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 5% 概率永久增加 2 点最大生命 |
 | `runelegend:echo` | 残响 | 击杀敌对目标 50% 概率在其位置留下残响，每秒对残响半径 5 格内的敌对目标造成 2 HP 伤害 |
-| `runelegend:immediate_counter` | 即刻反击 | 成功格挡后，随后 8 秒内直接近战每击 +3 HP，冷却 12 秒 |
+| `runelegend:immediate_counter` | 即刻反击 | 成功格挡后，随后 8 秒内直接近战每击额外造成 3 HP 真伤，冷却 12 秒 |
 
-令牌造成的伤害使用独立的 `runelegend:token_damage` 伤害类型，不会被其他令牌再次触发（无递归），也不会被格挡。
+### 特殊机制说明
+
+- 令牌直接造成的伤害无视护甲和防护附魔，仍受抗性提升和伤害吸收影响。
+- 残响使用独立的 `runelegend:token_damage`，不会递归触发令牌
+- 强化刃尖和即刻反击只让追加部分绕过装备减伤，基础近战伤害仍按原版结算。- 中毒、凋零等减益继续使用各自的原版伤害规则。
 
 ## 命令
 

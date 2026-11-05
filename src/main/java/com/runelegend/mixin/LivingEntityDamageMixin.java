@@ -57,7 +57,14 @@ abstract class LivingEntityDamageMixin {
     @WrapOperation(method = "hurtServer", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;actuallyHurt(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)V"), require = 2, allow = 2)
     private void runelegend$observeDamage(LivingEntity victim, ServerLevel level, DamageSource source, float amount, Operation<Void> original) {
-        original.call(victim, level, source, amount);
         TokenEventBridge.applied(victim, source, amount);
+        original.call(victim, level, source, amount);
+    }
+
+    @WrapOperation(method = "actuallyHurt", at = @At(value = "INVOKE", target =
+            "Lnet/minecraft/world/entity/LivingEntity;getDamageAfterMagicAbsorb(Lnet/minecraft/world/damagesource/DamageSource;F)F"), allow = 1)
+    private float runelegend$addDirectBonus(LivingEntity victim, DamageSource source, float amount, Operation<Float> original) {
+        return TokenEventBridge.afterMagic(victim, source, original.call(victim, source, amount),
+                (tokenSource, bonus) -> original.call(victim, tokenSource, bonus));
     }
 }

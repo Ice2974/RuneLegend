@@ -48,8 +48,15 @@ abstract class PlayerAttackMixin {
         var server = RuneLegendServer.find(attacker.level().getServer());
         if (server == null || !server.game().getRules().running()) return original.call(target, source, amount);
         var boost = server.tokens().melee(attacker, amount);
-        boolean result = TokenEventBridge.melee(attacker, target, source, () -> original.call(target, source, boost.damage()));
+        boolean result = TokenEventBridge.melee(attacker, target, source, boost.bonusDamage(), () -> original.call(target, source, amount));
         if (result) server.tokens().confirmBoost(attacker, boost.applied());
         return result;
+    }
+
+    @WrapOperation(method = "actuallyHurt", at = @At(value = "INVOKE", target =
+            "Lnet/minecraft/world/entity/player/Player;getDamageAfterMagicAbsorb(Lnet/minecraft/world/damagesource/DamageSource;F)F"), allow = 1)
+    private float runelegend$addDirectBonus(Player victim, DamageSource source, float amount, Operation<Float> original) {
+        return TokenEventBridge.afterMagic(victim, source, original.call(victim, source, amount),
+                (tokenSource, bonus) -> original.call(victim, tokenSource, bonus));
     }
 }

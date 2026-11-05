@@ -8,6 +8,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import java.util.function.BooleanSupplier;
+import java.util.function.BiFunction;
 
 /** Scoped to the original call, so nested damage never inherits an unrelated hit's metadata. */
 public final class TokenEventBridge {
@@ -28,7 +29,7 @@ public final class TokenEventBridge {
         }
     }
 
-    private record Melee(ServerPlayer player, Entity victim, DamageSource source) {}
+    private record Melee(ServerPlayer player, Entity victim, DamageSource source, float bonus) {}
     private static final ThreadLocal<Hit> HITS = new ThreadLocal<>();
     private static final ThreadLocal<Melee> MELEE = new ThreadLocal<>();
 
@@ -62,14 +63,26 @@ public final class TokenEventBridge {
         if (hit != null && hit.victim == victim && hit.source == source) hit.blocked = blocked;
     }
 
-    public static boolean melee(ServerPlayer attacker, Entity victim, DamageSource source, BooleanSupplier original) {
+    public static boolean melee(ServerPlayer attacker, Entity victim, DamageSource source, float bonus, BooleanSupplier original) {
         var previous = MELEE.get();
-        MELEE.set(new Melee(attacker, victim, source));
+        MELEE.set(new Melee(attacker, victim, source, bonus));
         try {
             return original.getAsBoolean();
         } finally {
             restore(MELEE, previous);
         }
+    }
+
+    /** Joins the two damage portions before absorption without sending a second hit. */
+    public static float afterMagic(LivingEntity victim, DamageSource source, float base,
+                                   BiFunction<DamageSource, Float, Float> applyMagic) {
+        var hit = HITS.get();
+        var melee = MELEE.get();
+        if (hit == null || hit.victim != victim || hit.source != source || hit.effective <= 0
+                || melee == null || melee.victim != victim || melee.source != source || melee.bonus <= 0) return base;
+        // This portion never enters the armor calculation. The token source lets vanilla
+        // apply Resistance but skip protection enchantments.
+        return base + applyMagic.apply(TokenEngine.directDamageSource(melee.player.level(), melee.player), melee.bonus);
     }
 
     private static void dispatch(RuneLegendServer server, Hit hit, ServerLevel level, boolean acceptedDamage) {

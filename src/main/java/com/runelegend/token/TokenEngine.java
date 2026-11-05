@@ -21,7 +21,7 @@ public final class TokenEngine {
     public static final ResourceKey<DamageType> TOKEN_DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE, RuneLegendMod.id("token_damage"));
     public static final int READY = 1, TRIGGERED = 2, ACTIVE = 4, COOLDOWN = 8, UNKNOWN = 16, PREPARING = 32;
     public record View(Identifier id, int flags, long triggeredUntil, long activeUntil, long cooldownUntil) {}
-    public record Boost(float damage, List<Identifier> applied) {}
+    public record Boost(float bonusDamage, List<Identifier> applied) {}
 
     private final GameController game;
     private final PlayerTokenService players;
@@ -47,18 +47,19 @@ public final class TokenEngine {
     }
 
     public Boost melee(ServerPlayer player, float amount) {
-        if (!game.getRules().running() || amount <= 0 || !player.isAlive()) return new Boost(amount, List.of());
+        if (!game.getRules().running() || amount <= 0 || !player.isAlive()) return new Boost(0, List.of());
+        float bonus = 0;
         var applied = new ArrayList<Identifier>();
         for (var id : players.get(player.getUUID()).equipped()) {
             var definition = registry.get(id);
             if (definition == null || !definition.events().contains(TokenEvent.Kind.MELEE)) continue;
             float extra = definition.effect().addMeleeDamage(new Context(player, id), state(player, id));
-            if (extra != 0) {
-                amount += extra;
+            if (extra > 0) {
+                bonus += extra;
                 applied.add(id);
             }
         }
-        return new Boost(amount, List.copyOf(applied));
+        return new Boost(bonus, List.copyOf(applied));
     }
 
     public void confirmBoost(ServerPlayer player, List<Identifier> applied) {
@@ -164,11 +165,15 @@ public final class TokenEngine {
 
         public void damage(ServerLevel level, LivingEntity victim, float amount) {
             if (!game.getRules().running() || !victim.isAlive() || victim.level() != level) return;
-            var type = level.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(TOKEN_DAMAGE);
-            victim.hurtServer(level, new DamageSource(type, player), amount);
+            victim.hurtServer(level, directDamageSource(level, player), amount);
         }
 
         private OwnedEffects.Key key(String name) { return new OwnedEffects.Key(player.getUUID(), token, name); }
+    }
+
+    static DamageSource directDamageSource(ServerLevel level, ServerPlayer player) {
+        var type = level.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(TOKEN_DAMAGE);
+        return new DamageSource(type, player);
     }
 
     static boolean roll(double chance, DoubleSupplier random) { return random.getAsDouble() < chance; }
