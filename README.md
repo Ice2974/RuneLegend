@@ -97,7 +97,7 @@ long round = api.getRules().round();
 - 格挡方向判定：近战取伤害来源位置，弹射物按其飞行轨迹反推，爆炸取爆心；方向不正确时按原版逻辑正常受伤。
 - 如果不想使用盾牌，可以通过命令给予玩家不可破坏并且能格挡的铁剑，示例：
 ```
-/give @s iron_sword[minecraft:unbreakable={},blocks_attacks={disable_cooldown_scale:0,damage_reductions:[{base:0,factor:0.3}]}]
+/give @s iron_sword[minecraft:unbreakable={},blocks_attacks={disable_cooldown_scale:0,damage_reductions:[{base:0,factor:0.7}]}]
 ```
 - 如果需要还原基岩版战斗机制，可以将玩家的 `attack_speed` 调高：
 ```
