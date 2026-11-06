@@ -3,6 +3,7 @@ package com.runelegend;
 import com.runelegend.api.RuleSnapshot;
 import com.runelegend.combat.GuardItems;
 import com.runelegend.combat.GuardStaminaService;
+import com.runelegend.game.GameRulesSavedData;
 import com.runelegend.game.GameController;
 import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.PlayerTokenSavedData;
@@ -32,7 +33,8 @@ public final class RuneLegendServer {
 
     private RuneLegendServer(MinecraftServer minecraft) {
         this.minecraft = minecraft;
-        game = new GameController(this::checkThread, this::rulesChanged);
+        var savedRules = GameRulesSavedData.load(minecraft);
+        game = new GameController(this::checkThread, this::rulesChanged, savedRules.rules(), savedRules::update);
         registry = TokenRegistry.builtIn();
         players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
         tokens = new TokenEngine(game, players, registry, this::tick);
