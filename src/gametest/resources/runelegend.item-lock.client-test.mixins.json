@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "com.runelegend.test.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["ItemLockPacketObserverMixin", "ItemLockScreenAccessor", "ItemLockMerchantScreenAccessor", "ItemLockTestInputMixin"],
+  "injectors": {"defaultRequire": 1}
+}
