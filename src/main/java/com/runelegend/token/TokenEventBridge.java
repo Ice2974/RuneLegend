@@ -17,7 +17,7 @@ public final class TokenEventBridge {
         private final DamageSource source;
         private final float incoming;
         private final boolean aliveBefore;
-        private float effective;
+        private float beforeMitigation;
         private float blocked;
         private boolean settled;
 
@@ -43,17 +43,18 @@ public final class TokenEventBridge {
         HITS.set(hit);
         try {
             boolean accepted = original.getAsBoolean();
-            if (hit.aliveBefore && hit.settled) dispatch(server, hit, level, accepted && hit.effective > 0);
+            if (hit.aliveBefore && hit.settled) dispatch(server, hit, level, accepted && hit.beforeMitigation > 0);
             return accepted;
         } finally {
             restore(HITS, previous);
         }
     }
 
-    public static void applied(LivingEntity victim, DamageSource source, float effective) {
+    /** Observes entry into actuallyHurt, before equipment and other damage reductions. */
+    public static void applied(LivingEntity victim, DamageSource source, float beforeMitigation) {
         var hit = HITS.get();
         if (hit != null && hit.victim == victim && hit.source == source) {
-            hit.effective += effective;
+            hit.beforeMitigation += beforeMitigation;
             hit.settled = true;
         }
     }
@@ -78,7 +79,7 @@ public final class TokenEventBridge {
                                    BiFunction<DamageSource, Float, Float> applyMagic) {
         var hit = HITS.get();
         var melee = MELEE.get();
-        if (hit == null || hit.victim != victim || hit.source != source || hit.effective <= 0
+        if (hit == null || hit.victim != victim || hit.source != source || hit.beforeMitigation <= 0
                 || melee == null || melee.victim != victim || melee.source != source || melee.bonus <= 0) return base;
         // This portion never enters the armor calculation. The token source lets vanilla
         // apply Resistance but skip protection enchantments.
@@ -104,7 +105,7 @@ public final class TokenEventBridge {
     }
 
     private static TokenEvent event(TokenEvent.Kind kind, ServerPlayer player, LivingEntity victim, ServerLevel level, Hit hit) {
-        return new TokenEvent(kind, player, victim, level, hit.source, hit.incoming, hit.effective, hit.blocked);
+        return new TokenEvent(kind, player, victim, level, hit.source, hit.incoming, hit.beforeMitigation, hit.blocked);
     }
 
     private static <T> void restore(ThreadLocal<T> local, T previous) {

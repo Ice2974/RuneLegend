@@ -40,7 +40,7 @@ abstract class PlayerAttackMixin {
     }
 
     @WrapOperation(method = "attack", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/Entity;hurtOrSimulate(Lnet/minecraft/world/damagesource/DamageSource;F)Z"))
+            target = "Lnet/minecraft/world/entity/Entity;hurtOrSimulate(Lnet/minecraft/world/damagesource/DamageSource;F)Z"), require = 1, allow = 1)
     private boolean runelegend$primaryMelee(Entity target, DamageSource source, float amount, Operation<Boolean> original) {
         if (!((Object) this instanceof ServerPlayer attacker) || !(target instanceof LivingEntity)) {
             return original.call(target, source, amount);

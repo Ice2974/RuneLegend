@@ -16,7 +16,7 @@
   "token.runelegend.sharpened_tip": "强化刃尖",
   "token.runelegend.sharpened_tip.description": "直接近战有 %s 概率使本击伤害增加 %s HP。",
   "token.runelegend.soul_siphon": "灵魂摄取",
-  "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率永久增加 %s HP 最大生命。",
+  "token.runelegend.soul_siphon.description": "击杀敌对怪物时有 %s 概率增加 %s HP 最大生命，不叠加；跨保存和重连保留，死亡重生后清除。",
   "token.runelegend.echo": "残响",
   "token.runelegend.echo.description": "击杀敌对怪物时有 %1$s 概率留下半径 %2$s 格的区域，持续 %4$s tick，每 %5$s tick 对敌对目标造成 %3$s HP 伤害。",
   "token.runelegend.immediate_counter": "即刻反击",

@@ -9,7 +9,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 ## 功能一览
 
 - **游戏流程控制**：`WAITING`/ `RUNNING` 两种状态。只有等待状态能更换令牌装备；每次状态切换都会清空回合内的令牌运行状态，开始新局会推进回合计数。状态、回合数和修订号保存在世界存档中，单人退出重进或服务器重启后不会自动回到等待状态。
-- **令牌系统**：每名玩家 3 个令牌槽，装备持久化到世界存档。内置 4 种令牌（见下表），全部由服务器权威判定，死亡、断线与回合重开时自动清理运行时效果。动作令牌可以相应基于 MC 原版的 `blocks_attacks` 组件的格挡。
+- **令牌系统**：每名玩家 3 个令牌槽，装备持久化到世界存档。内置 4 种令牌（见下表），全部由服务器权威判定。死亡、断线时清理充能、活动效果和调度任务，仅保留未到期冷却；重连恢复剩余冷却，离线冷却到期后自动回收。状态切换会连同冷却一起清空回合运行态。动作令牌可以响应基于 MC 原版 `blocks_attacks` 组件的格挡。
 - **体力系统**：格挡持续消耗体力，体力耗尽自动收剑，不足 10% 时无法起手。数值全部在服务器结算，客户端只负责显示。
 - **客户端 HUD**：准星下方展示令牌槽位图标（就绪 / 触发 / 生效 / 冷却倒计时）与体力百分比，无需资源包即可使用。
 
@@ -18,9 +18,11 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 | ID | 名称 | 效果 |
 | --- | --- | --- |
 | `runelegend:sharpened_tip` | 强化刃尖 | 直接近战命中 50% 概率额外造成 2 HP 真伤 |
-| `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 5% 概率永久增加 2 点最大生命 |
+| `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 5% 概率增加 2 点最大生命，不叠加、不治疗；跨保存和重连保留，死亡重生后清除 |
 | `runelegend:echo` | 残响 | 击杀敌对目标 50% 概率在其位置留下残响，持续 8 秒，每秒对残响半径 5 格内的敌对目标造成 3 HP 真伤 |
 | `runelegend:immediate_counter` | 即刻反击 | 成功格挡后，随后 8 秒内直接近战每击额外造成 3 HP 真伤，冷却 12 秒 |
+
+灵魂摄取的生命增益不属于回合活动效果，停局或卸下令牌不会移除它，普通死亡重生会按原版规则清除。
 
 ## 命令
 
@@ -28,12 +30,12 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 
 | 命令 | 权限 | 说明 |
 | --- | --- | --- |
-| `/runelegend list` | 所有玩家 | 列出全部已注册令牌 |
-| `/runelegend info <token_id>` | 所有玩家 | 查看令牌描述 |
+| `/runelegend token list` | 所有玩家 | 列出全部已注册令牌 |
+| `/runelegend token info <token_id>` | 所有玩家 | 查看令牌描述 |
 | `/runelegend status` | 所有玩家 | 查看自己的体力与已装备令牌（含冷却剩余） |
-| `/runelegend equip <token_id>` | 所有玩家 | 装备令牌，仅等待状态可用 |
-| `/runelegend unequip <token_id>` | 所有玩家 | 卸下令牌，仅等待状态可用 |
-| `/runelegend clear` | 所有玩家 | 清空自己的令牌，仅等待状态可用 |
+| `/runelegend token equip <token_id>` | 所有玩家 | 装备令牌，仅等待状态可用 |
+| `/runelegend token unequip <token_id>` | 所有玩家 | 卸下令牌，仅等待状态可用 |
+| `/runelegend token clear` | 所有玩家 | 清空自己的令牌，仅等待状态可用 |
 | `/runelegend game status` | 所有玩家 | 查看游戏状态 |
 | `/runelegend game start` | `runelegend:game`（默认权限等级 2） | 开始游戏 |
 | `/runelegend game stop` | `runelegend:game`（默认权限等级 2） | 停止游戏并重置回合 |
@@ -48,7 +50,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 ### 快速开始
 
 1. 服务端与所有客户端安装本模组和 Fabric API（模组在握手阶段强制要求客户端安装）。
-2. 玩家在等待状态用 `/runelegend equip` 配置令牌，或由管理员用 `/runelegend admin` 统一配装。
+2. 玩家在等待状态用 `/runelegend token equip` 配置令牌，或由管理员用 `/runelegend admin` 统一配装。
 3. 用 `/runelegend game start` 开始游戏（可直接放进命令方块）。
 4. 关卡结束时用 `/runelegend game stop` 停止：回合与令牌运行状态重置、体力回满，玩家可以重新配装进入下一轮。
 
@@ -61,10 +63,10 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 | `runelegend:token_enemies` | 实体类型 | 令牌的“敌对目标”判定范围 | 空；为空时回退为原版 `Enemy` 生物 |
 | `runelegend:bosses` | 实体类型 | Boss 判定 | `minecraft:ender_dragon`、`minecraft:wither` |
 | `runelegend:ghost_family` | 实体类型 | 鬼魅生物判定 | 空 |
-| `runelegend:sword_guardable` | 伤害类型 | 可以被剑格挡的伤害 | 近战、箭、蜂刺、爆炸等 7 种原版伤害 |
-| `runelegend:sword_guard_bypasses` | 伤害类型 | 绕过剑格挡的伤害 | `#minecraft:bypasses_armor`、`#minecraft:bypasses_invulnerability`、`runelegend:token_damage` |
+| `runelegend:sword_guardable` | 伤害类型 | 供物品 `blocks_attacks.damage_reductions[].type` 引用的可格挡伤害 | 近战、箭、蜂刺、爆炸等 7 种原版伤害 |
+| `runelegend:sword_guard_bypasses` | 伤害类型 | 供物品 `blocks_attacks.bypassed_by` 引用的绕过格挡伤害 | `#minecraft:bypasses_armor`、`#minecraft:bypasses_invulnerability`、`runelegend:token_damage` |
 
-例如给自己的自定义实体开启令牌效果：将下面的文件放进数据包的 `data/runelegend/tags/entity_type/token_enemies.json`（内置标签均为 `replace: false`，可与数据包合并）：
+`token_enemies` 非空时，只有该标签中的实体类型被视为令牌敌人；它不会自动与原版 `Enemy` 合并。下面的文件可将自定义实体纳入集合；若还需保留原版敌人，应同时列出所需类型。将文件放进数据包的 `data/runelegend/tags/entity_type/token_enemies.json`（内置标签均为 `replace: false`，可与数据包合并）：
 
 ```json
 {
@@ -91,18 +93,22 @@ if (!api.getRules().running()) {
 long round = api.getRules().round();
 ```
 
-令牌框架本身也是可扩展的：每个令牌是一个 `TokenEffectHandler`，由 `TokenRegistry` 统一管理事件分发（近战、受击、击杀、箭、格挡、生命变化）与运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。
+令牌框架本身也是可扩展的：每个令牌是一个 `TokenEffectHandler`，通过 `TokenRegistry` 注册，由 `TokenEngine` 分发事件（近战、受击、击杀、箭、格挡、生命变化）并管理运行状态，可参考 `src/main/java/com/runelegend/token/effect` 中的内置实现。当前版本尚未提供运行时注册入口，自定义令牌需要在本仓库内实现并重新构建。
+
+`TokenEvent` 是令牌触发事件，不是伤害统计记录。`damageBeforeMitigation` 表示原版格挡和受伤间隔调整后、进入 `actuallyHurt` 的基础命中量，尚未经过护甲、附魔、抗性和吸收，也不包含独立追加的近战令牌伤害。旧的 `effectiveDamage()` 访问器保留但已弃用，返回值含义不变。致死受击不会向死亡玩家分发 `HURT`，令牌自产直接伤害也不会递归分发令牌事件，因此不能据此直接计算输出或承伤统计。
 
 ## 格挡与战斗机制
 
+- `WAITING` 和 `RUNNING` 均可格挡；能否格挡由具体物品的 `blocks_attacks` 组件及服务端体力决定。状态切换不终止有效的原版物品使用。
 - 体力上限 20000（HUD 以百分比显示），起手格挡至少需要 2000（10%）。
 - 格挡期间每刻消耗 125（每秒 2500），满体力可连续格挡约 8 秒，耗尽时自动收剑。
 - 停止格挡 0.5 秒后开始恢复，每刻 100（每秒 2000），从 0 回满约需 10 秒。
 - 格挡方向判定：近战取伤害来源位置，弹射物按其飞行轨迹反推，爆炸取爆心；方向不正确时按原版逻辑正常受伤。
 - 如果不想使用盾牌，可以通过命令给予玩家不可破坏并且能格挡的铁剑，示例：
 ```
-/give @s iron_sword[minecraft:unbreakable={},blocks_attacks={disable_cooldown_scale:0,damage_reductions:[{base:0,factor:0.7}]}]
+/give @s iron_sword[minecraft:unbreakable={},blocks_attacks={disable_cooldown_scale:0,damage_reductions:[{type:"#runelegend:sword_guardable",base:0,factor:0.7}],bypassed_by:"#runelegend:sword_guard_bypasses"}]
 ```
+- 示例通过物品组件显式引用两个格挡标签；未引用这些标签的物品不会受其修改影响。模组不自动给剑添加或修改组件。
 - 如果需要还原基岩版战斗机制，可以将玩家的 `attack_speed` 调高：
 ```
 /attribute @s attack_speed base set 23
@@ -110,15 +116,15 @@ long round = api.getRules().round();
 
 ## HUD 说明
 
-- 令牌图标显示在屏幕底部中央上方：绿色边框表示就绪，橙色表示刚刚触发，青色表示效果生效中，灰色表示不可用；冷却中的图标会变暗并显示剩余秒数。
+- 令牌图标仅在 `RUNNING` 且玩家存活时显示。触发时短暂发光，活动效果期间保持明亮，其余状态变暗；冷却中的图标显示剩余秒数。准备动画由具体令牌按需启用，与就绪状态独立。
 - 体力低于满值或正在格挡时，图标行上方显示体力百分比。
 - 可用 JVM 属性 `-Drunelegend.hudOffset=<0-100>` 向上微调 HUD 位置，避免与其他模组 HUD 重叠。
 
 ## 网络与存储
 
-- 协议握手在配置阶段完成并校验随机数，防止旧版本或伪造客户端混入；协议当前版本为 2。
+- 协议握手在配置阶段校验协议号与本次随机数，拒绝缺模组或协议不匹配的客户端；协议当前版本为 2。握手只确认协议兼容，不证明客户端实现可信，游戏判定始终以服务端为准。
 - 令牌与体力状态采用“快照 + 增量”同步：常态只发送变化部分（体力最快每 4 刻一次），客户端检测到丢包失序会自动请求重同步，服务端每秒最多响应一次。
-- 游戏状态保存在主世界维度数据目录的 `data/runelegend/game_rules.dat`（schema 1）。存档没有该文件时默认 `WAITING`、回合 0；令牌冷却与临时效果仍按回合运行数据处理，不跨重启保留。
+- 游戏状态保存在主世界维度数据目录的 `data/runelegend/game_rules.dat`（schema 1）。仅在文件确实不存在时初始化为 `WAITING`、回合 0；已有文件损坏、schema 不支持或无法读取时中止启动并报告文件路径，保留原文件，需修复或恢复后重启。正常 schema 1 存档无需迁移。令牌冷却与临时效果不跨服务器重启保留。
 - 玩家装备保存在主世界维度数据目录的 `data/runelegend/player_tokens.dat`（schema 1）。文件无法读取时进入只读模式：玩家可正常游玩，但写入会被拒绝并在日志中报告，不会用空数据覆盖已有记录。
 
 ## 从源码构建

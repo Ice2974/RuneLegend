@@ -24,7 +24,8 @@ public final class SoulSiphonEffect implements TokenEffectHandler {
         var attribute = player.getAttribute(Attributes.MAX_HEALTH);
         if (attribute == null) return;
         float health = player.getHealth();
-        // A permanent modifier is saved with the player and is not owned by one game round.
+        // Vanilla saves this modifier across reconnects, but does not copy it on death respawn.
+        // It is not owned by one game round; repeated procs refresh rather than stack.
         attribute.removeModifier(MODIFIER);
         attribute.addPermanentModifier(new AttributeModifier(MODIFIER, settings.maxHealthBonus(),
                 AttributeModifier.Operation.ADD_VALUE));

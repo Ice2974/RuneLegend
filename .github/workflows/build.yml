@@ -19,3 +19,16 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/wrapper-validation@v4
       - run: bash ./gradlew build
+      - name: Run client GameTest
+        run: xvfb-run -a bash ./gradlew runClientGameTest
+      - name: Store test reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            build/reports/
+            build/test-results/
+            build/run/gameTest/logs/
+            build/run/clientGameTest/logs/
+            build/run/clientGameTest/screenshots/

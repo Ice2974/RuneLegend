@@ -2,6 +2,7 @@ package com.runelegend.token;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
+import java.util.UUID;
 
 final class TokenScheduler {
     private record Task(long tick, long round, long order, OwnedEffects.Key key, Runnable action) {}
@@ -20,5 +21,6 @@ final class TokenScheduler {
     }
 
     void cancel(OwnedEffects.Key key) { tasks.removeIf(task -> task.key().equals(key)); }
+    void cancelPlayer(UUID player) { tasks.removeIf(task -> task.key().player().equals(player)); }
     void clear() { tasks.clear(); }
 }

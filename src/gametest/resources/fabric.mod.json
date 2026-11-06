@@ -5,8 +5,8 @@
   "name": "RuneLegend test fixtures",
   "environment": "*",
   "entrypoints": {
-    "fabric-gametest": ["com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests"],
-    "fabric-client-gametest": ["com.runelegend.test.HudClientGameTest"]
+    "fabric-gametest": ["com.runelegend.test.GuardGameTests", "com.runelegend.test.TokenGameTests", "com.runelegend.token.TokenEffectsGameTests", "com.runelegend.token.TokenLifecycleGameTests", "com.runelegend.game.GameRulesStorageGameTests"],
+    "fabric-client-gametest": ["com.runelegend.test.HudClientGameTest", "com.runelegend.test.TokenLifecycleClientGameTest"]
   },
   "depends": {"runelegend": "*"}
 }
