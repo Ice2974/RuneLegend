@@ -40,7 +40,7 @@ public final class RuneLegendServer {
         players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
         tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);
-        stamina = new GuardStaminaService(this::tick);
+        stamina = new GuardStaminaService(game, this::tick);
     }
 
     public static RuneLegendServer find(MinecraftServer minecraft) { return INSTANCES.get(minecraft); }

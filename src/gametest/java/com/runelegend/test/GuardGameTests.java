@@ -4,6 +4,7 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.runelegend.RuneLegendMod;
 import com.runelegend.RuneLegendServer;
+import com.runelegend.combat.StaminaManager;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -198,12 +199,64 @@ public final class GuardGameTests {
         }
     }
 
+    @GameTest
+    public void staminaOnlyAppliesWhileRunning(GameTestHelper test) {
+        var player = fixture(test);
+        var server = RuneLegendServer.find(test.getLevel().getServer());
+        var stamina = server.stamina();
+        int exhaustionTicks = StaminaManager.MAX / StaminaManager.DRAIN_PER_TICK;
+        try {
+            server.game().stopGame();
+            start(test, player, SWORD);
+            for (int i = 0; i <= exhaustionTicks; i++) stamina.tick(player);
+            test.assertValueEqual(stamina.stamina(player), StaminaManager.MAX, "WAITING never drains stamina");
+            test.assertTrue(player.isBlocking(), "WAITING can block beyond the normal exhaustion time");
+
+            server.game().startGame();
+            // Mock players are not on the online list used by the round-reset callback.
+            stamina.resetRound(player);
+            stamina.tick(player);
+            test.assertValueEqual(stamina.stamina(player), StaminaManager.MAX - StaminaManager.DRAIN_PER_TICK,
+                    "Starting begins draining an already active block");
+            test.assertTrue(player.isBlocking(), "Starting preserves the active block");
+
+            server.game().stopGame();
+            stamina.resetRound(player);
+            for (int i = 0; i <= exhaustionTicks; i++) stamina.tick(player);
+            test.assertValueEqual(stamina.stamina(player), StaminaManager.MAX, "Stopping restores and preserves full stamina");
+            test.assertTrue(player.isBlocking(), "Stopping preserves the active block");
+
+            server.game().startGame();
+            stamina.resetRound(player);
+            for (int i = 0; i < exhaustionTicks; i++) stamina.tick(player);
+            test.assertValueEqual(stamina.stamina(player), 0, "A new round still exhausts the player");
+            test.assertTrue(!player.isUsingItem(), "RUNNING still stops an exhausted block");
+
+            server.game().stopGame();
+            // Before resetting this mock, exercise WAITING with both low stamina and a pending release.
+            use(player);
+            test.assertTrue(player.isBlocking(), "WAITING ignores the stamina threshold and exhaustion release lock");
+            stamina.tick(player);
+            test.assertTrue(player.isBlocking(), "WAITING never stops a block due to zero stamina");
+            player.stopUsingItem();
+            server.game().startGame();
+            stamina.resetRound(player);
+            use(player);
+            test.assertTrue(player.isBlocking(), "A new round clears an inactive block's old release lock");
+            test.succeed();
+        } finally {
+            server.game().stopGame();
+            server.leave(player);
+        }
+    }
+
     @GameTest(maxTicks = 50)
     public void exhaustionRequiresReleaseAndRecovery(GameTestHelper test) {
         var player = fixture(test);
         var other = fixture(test);
         var server = RuneLegendServer.find(test.getLevel().getServer());
         var stamina = server.stamina();
+        server.game().startGame();
         start(test, player, SWORD);
         player.setSprinting(true);
         test.assertTrue(!player.isSprinting(), "The server rejects sprint with the configured use effects");
@@ -219,9 +272,14 @@ public final class GuardGameTests {
         use(player);
         test.assertTrue(!player.isUsingItem(), "A fresh press at zero stamina fails");
         // In this fixture the mock player isn't on the online tick list, so tick its stamina once per game tick.
-        for (int i = 1; i < 30; i++) test.runAfterDelay(i, () -> stamina.tick(player));
+        for (int i = 1; i < 30; i++) test.runAfterDelay(i, () -> {
+            // Other tests in this batch can change the shared game state.
+            server.game().startGame();
+            stamina.tick(player);
+        });
         test.runAfterDelay(30, () -> {
             try {
+                server.game().startGame();
                 stamina.tick(player);
                 test.assertValueEqual(stamina.stamina(player), 2_000, "Recovery starts after ten full ticks");
                 use(player);
@@ -243,6 +301,7 @@ public final class GuardGameTests {
                 test.assertValueEqual(stamina.stamina(player), 20_000, "A new connection gets full stamina");
                 test.succeed();
             } finally {
+                server.game().stopGame();
                 server.leave(player);
                 server.leave(other);
             }

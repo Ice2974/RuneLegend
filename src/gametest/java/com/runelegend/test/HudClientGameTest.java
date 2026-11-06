@@ -2,6 +2,7 @@ package com.runelegend.test;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.runelegend.RuneLegendMod;
+import com.runelegend.RuneLegendServer;
 import com.runelegend.client.hud.TokenHudAnimation;
 import com.runelegend.combat.StaminaManager;
 import com.runelegend.client.network.ClientStateCache;
@@ -10,6 +11,8 @@ import com.runelegend.network.RuneLegendPayloads.View;
 import com.runelegend.token.TokenEngine;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
@@ -37,13 +40,15 @@ public final class HudClientGameTest implements FabricClientGameTest {
                     && client.player.getMainHandItem().is(Items.DIAMOND_SWORD));
             connection.waitForChunksRender();
             server.runCommand("tp @p ~ ~ ~ 0 -35");
-            server.runCommand("title @a actionbar {text:'Vanilla action bar'}");
             context.getInput().holdKey(options -> options.keyUse);
             try {
-                context.waitFor(client -> client.player.isBlocking() && cache.view() != null && cache.view().stamina() < StaminaManager.MAX);
+                assertWaitingGuard(context, server, connection, cache,
+                        StaminaManager.MAX / StaminaManager.DRAIN_PER_TICK + StaminaManager.REGEN_DELAY);
+                server.runCommand("title @a actionbar {text:'Vanilla action bar'}");
                 context.takeScreenshot("runelegend-waiting-stamina-only");
                 server.runCommand("runelegend game start");
-                context.waitFor(client -> cache.rules().running() && client.player.isBlocking());
+                context.waitFor(client -> cache.rules().running() && client.player.isBlocking()
+                        && cache.view() != null && cache.view().stamina() < StaminaManager.MAX);
                 context.takeScreenshot("runelegend-hud-and-action-bar");
                 context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_BACK));
                 context.waitTick();
@@ -59,9 +64,26 @@ public final class HudClientGameTest implements FabricClientGameTest {
                 context.getInput().releaseKey(options -> options.keyUse);
             }
             context.waitTick();
+            connection.waitForServerboundPackets();
             context.getInput().holdKey(options -> options.keyUse);
             try {
-                context.waitFor(client -> client.player.isBlocking());
+                context.waitFor(client -> cache.rules().running() && client.player.isBlocking());
+                server.waitFor(minecraft -> connection.getServerPlayer().isBlocking());
+                long round = context.computeOnClient(client -> cache.rules().round());
+                // Keep Use held while an active guard crosses both round transitions.
+                server.runCommand("runelegend game stop");
+                assertWaitingGuard(context, server, connection, cache, StaminaManager.REGEN_DELAY + 20);
+                server.runCommand("runelegend game start");
+                context.waitFor(client -> cache.rules().running() && cache.rules().round() == round + 1
+                        && client.player.isBlocking() && cache.view() != null
+                        && cache.view().stamina() > 0 && cache.view().stamina() < StaminaManager.MAX);
+                server.runOnServer(minecraft -> {
+                    var runtime = RuneLegendServer.find(minecraft);
+                    var player = connection.getServerPlayer();
+                    if (!player.isBlocking() || runtime.stamina().stamina(player) >= StaminaManager.MAX) {
+                        throw new AssertionError("Held guard did not resume draining on the next round");
+                    }
+                });
             } finally {
                 context.getInput().releaseKey(options -> options.keyUse);
             }
@@ -83,6 +105,29 @@ public final class HudClientGameTest implements FabricClientGameTest {
             }
             context.waitFor(client -> !client.player.isUsingItem());
             captureThreeGlows(context, cache);
+        }
+    }
+
+    private static void assertWaitingGuard(ClientGameTestContext context, TestDedicatedServerContext server,
+                                           TestDedicatedServerConnection connection, ClientStateCache cache, int ticks) {
+        context.waitFor(client -> cache.rules() != null && !cache.rules().running() && client.player.isBlocking()
+                && cache.view() != null && cache.view().stamina() == StaminaManager.MAX);
+        server.waitFor(minecraft -> connection.getServerPlayer().isBlocking());
+        long until = server.computeOnServer(minecraft -> RuneLegendServer.find(minecraft).tick()) + ticks;
+        // Observe real server ticks so a fast client cannot skip the stamina calculation window.
+        server.waitFor(minecraft -> {
+            var runtime = RuneLegendServer.find(minecraft);
+            var player = connection.getServerPlayer();
+            if (runtime.game().getRules().running() || !player.isBlocking()
+                    || runtime.stamina().stamina(player) != StaminaManager.MAX) {
+                throw new AssertionError("WAITING changed stamina or interrupted the held guard");
+            }
+            return runtime.tick() >= until;
+        }, ticks + 100);
+        connection.waitForClientboundPackets();
+        if (!context.computeOnClient(client -> !cache.rules().running() && client.options.keyUse.isDown()
+                && client.player.isBlocking() && cache.view() != null && cache.view().stamina() == StaminaManager.MAX)) {
+            throw new AssertionError("WAITING guard and full stamina were not preserved on the client");
         }
     }
 

@@ -1,5 +1,6 @@
 package com.runelegend.combat;
 
+import com.runelegend.game.GameController;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.HashMap;
 import java.util.Map;
@@ -8,9 +9,13 @@ import java.util.function.LongSupplier;
 
 public final class GuardStaminaService {
     private final Map<UUID, PlayerCombatRuntime> players = new HashMap<>();
+    private final GameController game;
     private final LongSupplier clock;
 
-    public GuardStaminaService(LongSupplier clock) { this.clock = clock; }
+    public GuardStaminaService(GameController game, LongSupplier clock) {
+        this.game = game;
+        this.clock = clock;
+    }
 
     public void join(ServerPlayer player) { players.put(player.getUUID(), new PlayerCombatRuntime()); }
 
@@ -23,9 +28,10 @@ public final class GuardStaminaService {
 
     public boolean tryStart(ServerPlayer player) {
         var runtime = players.get(player.getUUID());
-        if (runtime == null || !player.isAlive() || player.isSpectator() || runtime.releaseRequired) return false;
+        boolean running = game.getRules().running();
+        if (runtime == null || !player.isAlive() || player.isSpectator() || running && runtime.releaseRequired) return false;
         runtime.releaseRequired = true;
-        if (!StaminaManager.canStart(runtime.stamina)) return false;
+        if (running && !StaminaManager.canStart(runtime.stamina)) return false;
         runtime.startedAt = clock.getAsLong();
         return true;
     }
@@ -45,7 +51,10 @@ public final class GuardStaminaService {
 
     public void resetRound(ServerPlayer player) {
         var runtime = players.get(player.getUUID());
-        if (runtime != null) runtime.stamina = StaminaManager.MAX;
+        if (runtime != null) {
+            runtime.stamina = StaminaManager.MAX;
+            runtime.releaseRequired = GuardItems.using(player);
+        }
     }
 
     // A command or another mod can replace the active stack between vanilla entity ticks.
@@ -65,6 +74,7 @@ public final class GuardStaminaService {
         var runtime = players.get(player.getUUID());
         if (runtime == null) return;
         validateUse(player);
+        if (!game.getRules().running()) return;
         if (GuardItems.using(player)) {
             runtime.stamina = StaminaManager.drain(runtime.stamina);
             if (runtime.stamina == 0) player.stopUsingItem();
