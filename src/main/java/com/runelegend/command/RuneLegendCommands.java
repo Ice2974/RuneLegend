@@ -27,15 +27,18 @@ public final class RuneLegendCommands {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
             var root = literal("runelegend")
-                    .then(literal("list").executes(RuneLegendCommands::list))
-                    .then(literal("info").then(tokenArg().executes(RuneLegendCommands::info)))
                     .then(literal("game")
                             .then(literal("status").executes(RuneLegendCommands::rules))
                             .then(literal("start").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
                                     .executes(ctx -> changeRules(ctx, instance(ctx).game().startGame())))
                             .then(literal("stop").requires(PermissionPredicates.require(RuneLegendMod.id("game"), PermissionLevel.GAMEMASTERS))
                                     .executes(ctx -> changeRules(ctx, instance(ctx).game().stopGame()))));
-            addEquipment(root, ctx -> ctx.getSource().getPlayerOrException());
+            var token = literal("token")
+                    .then(literal("list").executes(RuneLegendCommands::list))
+                    .then(literal("info").then(tokenArg().executes(RuneLegendCommands::info)));
+            addEquipmentChanges(token, ctx -> ctx.getSource().getPlayerOrException());
+            addStatus(root, ctx -> ctx.getSource().getPlayerOrException());
+            root.then(token);
             var admin = argument("player", EntityArgument.player());
             addEquipment(admin, ctx -> EntityArgument.getPlayer(ctx, "player"));
             root.then(literal("admin").requires(PermissionPredicates.require(RuneLegendMod.id("admin"), PermissionLevel.ADMINS)).then(admin));
@@ -46,7 +49,15 @@ public final class RuneLegendCommands {
     private interface Target { ServerPlayer get(CommandContext<CommandSourceStack> context) throws CommandSyntaxException; }
 
     private static void addEquipment(ArgumentBuilder<CommandSourceStack, ?> parent, Target target) {
+        addStatus(parent, target);
+        addEquipmentChanges(parent, target);
+    }
+
+    private static void addStatus(ArgumentBuilder<CommandSourceStack, ?> parent, Target target) {
         parent.then(literal("status").executes(ctx -> status(ctx, target.get(ctx))));
+    }
+
+    private static void addEquipmentChanges(ArgumentBuilder<CommandSourceStack, ?> parent, Target target) {
         parent.then(literal("clear").executes(ctx -> {
             var player = target.get(ctx);
             return result(ctx, player, instance(ctx).players().clear(player.getUUID()));
