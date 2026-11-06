@@ -9,6 +9,7 @@ import com.runelegend.network.PlayerStateSync;
 import com.runelegend.player.PlayerTokenSavedData;
 import com.runelegend.player.PlayerTokenService;
 import com.runelegend.token.TokenEngine;
+import com.runelegend.token.TokenConfig;
 import com.runelegend.token.TokenRegistry;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -35,7 +36,7 @@ public final class RuneLegendServer {
         this.minecraft = minecraft;
         var savedRules = GameRulesSavedData.load(minecraft);
         game = new GameController(this::checkThread, this::rulesChanged, savedRules.rules(), savedRules::update);
-        registry = TokenRegistry.builtIn();
+        registry = TokenRegistry.builtIn(TokenConfig.loadOrGenerate(TokenConfig.defaultPath()));
         players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
         tokens = new TokenEngine(game, players, registry, this::tick);
         sync = new PlayerStateSync(this);

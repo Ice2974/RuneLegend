@@ -99,6 +99,86 @@ public final class TokenEffectsGameTests {
     }
 
     @GameTest
+    public void configuredTokenSettingsDriveEveryBuiltInEffect(GameTestHelper test) {
+        var minecraft = test.getLevel().getServer();
+        var server = RuneLegendServer.find(minecraft);
+        var player = GuardGameTests.fixture(test);
+        var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
+        var nearSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 3);
+        var farSpider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 4);
+        var clock = new AtomicLong(100);
+        var config = new TokenConfig(
+                new TokenConfig.SharpenedTipSettings(0.25F, 4.0F),
+                new TokenConfig.SoulSiphonSettings(0.75F, 3.0F),
+                new TokenConfig.EchoSettings(1.0F, 1.5, 4.0F, 40, 20),
+                new TokenConfig.ImmediateCounterSettings(5.0F, 20, 30));
+        var registry = TokenRegistry.builtIn(config);
+        var game = new GameController(() -> {}, (previous, current) -> {});
+        var players = new PlayerTokenService(game, PlayerTokenSavedData.load(minecraft), registry);
+        var tokens = new TokenEngine(game, players, registry, clock::get, ignored -> 0.10);
+        var kill = new TokenEvent(TokenEvent.Kind.KILL, player, corpse, test.getLevel(),
+                player.damageSources().playerAttack(player), 20, 20, 0);
+        try {
+            game.stopGame();
+            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("sharpened_tip")),
+                    PlayerTokenService.Result.CHANGED, "Equip configured Sharpened Tip");
+            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("soul_siphon")),
+                    PlayerTokenService.Result.CHANGED, "Equip configured Soul Siphon");
+            game.startGame();
+            test.assertValueEqual(tokens.melee(player, 6).bonusDamage(), 4.0F,
+                    "Configured probability and damage drive Sharpened Tip");
+            float maximumHealth = player.getMaxHealth();
+            tokens.dispatch(kill);
+            test.assertValueEqual(player.getMaxHealth(), maximumHealth + 3.0F,
+                    "Configured probability and health bonus drive Soul Siphon");
+
+            game.stopGame();
+            players.clear(player.getUUID());
+            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("echo")),
+                    PlayerTokenService.Result.CHANGED, "Equip configured Echo");
+            game.startGame();
+            tokens.dispatch(kill);
+            float nearHealth = nearSpider.getHealth();
+            float farHealth = farSpider.getHealth();
+            clock.set(120);
+            nearSpider.damageCooldownTime = 0;
+            tokens.tick(List.of(player));
+            test.assertValueEqual(nearSpider.getHealth(), nearHealth - 4.0F, "Configured Echo damages inside its radius");
+            test.assertValueEqual(farSpider.getHealth(), farHealth, "Configured Echo excludes targets outside its radius");
+            clock.set(140);
+            nearSpider.damageCooldownTime = 0;
+            tokens.tick(List.of(player));
+            test.assertValueEqual(nearSpider.getHealth(), nearHealth - 8.0F, "Configured interval produces two pulses");
+            clock.set(160);
+            nearSpider.damageCooldownTime = 0;
+            tokens.tick(List.of(player));
+            test.assertValueEqual(nearSpider.getHealth(), nearHealth - 8.0F, "Configured duration stops after two pulses");
+
+            game.stopGame();
+            players.clear(player.getUUID());
+            test.assertValueEqual(players.equip(player.getUUID(), RuneLegendMod.id("immediate_counter")),
+                    PlayerTokenService.Result.CHANGED, "Equip configured Immediate Counter");
+            game.startGame();
+            clock.set(180);
+            tokens.dispatch(new TokenEvent(TokenEvent.Kind.GUARD_SUCCESS, player, player, test.getLevel(), null, 6, 3, 3));
+            clock.set(190);
+            test.assertValueEqual(tokens.melee(player, 6).bonusDamage(), 5.0F, "Configured damage drives Immediate Counter");
+            test.assertTrue((tokens.views(player).getFirst().flags() & TokenEngine.ACTIVE) != 0,
+                    "Configured duration drives Immediate Counter");
+            clock.set(200);
+            var view = tokens.views(player).getFirst();
+            test.assertTrue((view.flags() & TokenEngine.COOLDOWN) != 0 && view.cooldownUntil() == 230,
+                    "Configured cooldown starts when the configured effect ends");
+            test.succeed();
+        } finally {
+            tokens.clearRound();
+            game.stopGame();
+            players.clear(player.getUUID());
+            server.leave(player);
+        }
+    }
+
+    @GameTest
     public void onlyAnOptedInTokenPublishesPreparation(GameTestHelper test) {
         var minecraft = test.getLevel().getServer();
         var server = RuneLegendServer.find(minecraft);

@@ -11,5 +11,7 @@ public record TokenDefinition(Identifier id, Set<TokenEvent.Kind> events, TokenE
     }
 
     public Component name() { return RuneLegendText.message("token.runelegend." + id.getPath()); }
-    public Component description() { return RuneLegendText.message("token.runelegend." + id.getPath() + ".description"); }
+    public Component description() {
+        return RuneLegendText.message("token.runelegend." + id.getPath() + ".description", effect.descriptionArguments());
+    }
 }

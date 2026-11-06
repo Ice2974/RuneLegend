@@ -7,4 +7,5 @@ public interface TokenEffectHandler {
     default void onEvent(TokenEngine.Context context, TokenRuntimeState state, TokenEvent event) {}
     default boolean ready(ServerPlayer player, TokenRuntimeState state, long tick) { return true; }
     default boolean preparing(ServerPlayer player, TokenRuntimeState state, long tick) { return false; }
+    default Object[] descriptionArguments() { return new Object[0]; }
 }

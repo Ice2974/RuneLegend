@@ -20,11 +20,15 @@ public final class TokenRegistry {
     }
 
     public static TokenRegistry builtIn() {
+        return builtIn(TokenConfig.DEFAULT);
+    }
+
+    public static TokenRegistry builtIn(TokenConfig config) {
         return new Builder()
-                .add("sharpened_tip", new SharpenedTipEffect(), MELEE)
-                .add("soul_siphon", new SoulSiphonEffect(), KILL)
-                .add("echo", new EchoEffect(), KILL)
-                .add("immediate_counter", new ImmediateCounterEffect(), GUARD_SUCCESS, MELEE)
+                .add("sharpened_tip", new SharpenedTipEffect(config.sharpenedTip()), MELEE)
+                .add("soul_siphon", new SoulSiphonEffect(config.soulSiphon()), KILL)
+                .add("echo", new EchoEffect(config.echo()), KILL)
+                .add("immediate_counter", new ImmediateCounterEffect(config.immediateCounter()), GUARD_SUCCESS, MELEE)
                 .build();
     }
 
