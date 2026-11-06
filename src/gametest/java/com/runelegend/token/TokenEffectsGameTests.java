@@ -254,6 +254,8 @@ public final class TokenEffectsGameTests {
         var corpse = test.spawnWithNoFreeWill(EntityTypes.ZOMBIE, 2, 2, 2);
         var spider = test.spawnWithNoFreeWill(EntityTypes.SPIDER, 2, 2, 3);
         var clock = new AtomicLong(100);
+        spider.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40.0);
+        spider.setHealth(40.0F);
         var tokens = new TokenEngine(server.game(), server.players(), server.registry(), clock::get, player -> 0.01);
         float firstMax = first.getMaxHealth();
         float firstHealth = first.getHealth();
@@ -284,7 +286,7 @@ public final class TokenEffectsGameTests {
                 spider.damageCooldownTime = 0;
                 clock.set(100 + elapsed);
                 tokens.tick(List.of(first, second));
-                test.assertValueEqual(spider.getHealth(), spiderHealth - 2F * (elapsed / 20), "Echo applies one pulse every twenty ticks");
+                test.assertValueEqual(spider.getHealth(), spiderHealth - 3F * (elapsed / 20), "Echo applies one pulse every twenty ticks");
             }
             tokens.clearEffects(first.getUUID());
             test.assertValueEqual(first.getMaxHealth(), firstMax + 2, "Soul Siphon maximum health is permanent");

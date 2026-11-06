@@ -65,7 +65,7 @@ public record TokenConfig(
     }
 
     public record EchoSettings(float chance, double radius, float damage, int durationTicks, int intervalTicks) {
-        public static final EchoSettings DEFAULT = new EchoSettings(0.50F, 5.0, 2.0F, 160, 20);
+        public static final EchoSettings DEFAULT = new EchoSettings(0.50F, 5.0, 3.0F, 160, 20);
         public static final Codec<EchoSettings> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 field(ExtraCodecs.floatRange(0.0F, 1.0F), "chance", DEFAULT.chance()).forGetter(EchoSettings::chance),
                 field(Codec.DOUBLE.validate(EchoSettings::positiveRadius), "radius", DEFAULT.radius()).forGetter(EchoSettings::radius),

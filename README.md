@@ -19,7 +19,7 @@ RuneLegend-Core 是一个面向《圣符传说》第三方关卡开发者的 Fab
 | --- | --- | --- |
 | `runelegend:sharpened_tip` | 强化刃尖 | 直接近战命中 50% 概率额外造成 2 HP 真伤 |
 | `runelegend:soul_siphon` | 灵魂摄取 | 击杀敌对目标 5% 概率永久增加 2 点最大生命 |
-| `runelegend:echo` | 残响 | 击杀敌对目标 50% 概率在其位置留下残响，持续 8 秒，每秒对残响半径 5 格内的敌对目标造成 2 HP 真伤 |
+| `runelegend:echo` | 残响 | 击杀敌对目标 50% 概率在其位置留下残响，持续 8 秒，每秒对残响半径 5 格内的敌对目标造成 3 HP 真伤 |
 | `runelegend:immediate_counter` | 即刻反击 | 成功格挡后，随后 8 秒内直接近战每击额外造成 3 HP 真伤，冷却 12 秒 |
 
 ## 命令
