@@ -17,7 +17,7 @@ public final class TokenLifecycleClientGameTest implements FabricClientGameTest 
         var cache = ClientStateCache.INSTANCE;
         try (var server = context.worldBuilder().createServer(props)) {
             long expiry;
-            try (var connection = server.connect()) {
+            try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && cache.view() != null);
                 server.runCommand("runelegend admin @p equip runelegend:immediate_counter");
                 server.runCommand("runelegend game start");
@@ -40,7 +40,7 @@ public final class TokenLifecycleClientGameTest implements FabricClientGameTest 
             }
             server.waitFor(minecraft -> minecraft.getPlayerList().getPlayers().isEmpty());
             context.waitFor(client -> client.player == null && cache.view() == null);
-            try (var connection = server.connect()) {
+            try (var _ = server.connect()) {
                 context.waitFor(client -> client.player != null && token(cache) != null
                         && token(cache).flags() == TokenEngine.COOLDOWN);
                 long restored = context.computeOnClient(client -> token(cache).cooldownUntil());

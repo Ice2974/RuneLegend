@@ -171,7 +171,7 @@ public final class ItemLockTransferGameTests {
             test.assertTrue(fixture.connection().sent.stream().anyMatch(packet ->
                             packet instanceof ClientboundContainerSetContentPacket content
                                     && content.containerId() == menu.containerId
-                                    && ItemStack.listMatches(content.items(), before)),
+                                    && sameStacks(content.items(), before)),
                     "The rejected packet forces a complete authoritative menu correction");
 
             menu.getSlot(1).getItem().remove(DataComponents.CUSTOM_DATA);
@@ -433,11 +433,18 @@ public final class ItemLockTransferGameTests {
     }
 
     private static void unchanged(GameTestHelper test, AbstractContainerMenu menu, List<ItemStack> before, String message) {
-        test.assertTrue(ItemStack.listMatches(snapshot(menu), before) && menu.getCarried().isEmpty(), message);
+        test.assertTrue(sameStacks(snapshot(menu), before) && menu.getCarried().isEmpty(), message);
     }
 
     private static void same(GameTestHelper test, ItemStack actual, ItemStack expected, String message) {
         test.assertTrue(ItemStack.matches(actual, expected), message);
+    }
+
+    // ItemStack.listMatches is deprecated in 26.x; compare slot-by-slot with the supported primitive.
+    private static boolean sameStacks(List<ItemStack> actual, List<ItemStack> expected) {
+        if (actual.size() != expected.size()) return false;
+        for (int i = 0; i < actual.size(); i++) if (!ItemStack.matches(actual.get(i), expected.get(i))) return false;
+        return true;
     }
 
     private static int equipmentIndex(EquipmentSlot slot) {
